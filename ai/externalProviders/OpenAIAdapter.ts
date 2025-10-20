@@ -1,43 +1,43 @@
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { aiLogger } from '../../backend/src/utils/logger';
 import { config, isExternalProviderConfigured } from '../../config/settings';
 import { AIResponse, StreamChunk, Conversation, PersonalityState } from '../../backend/src/types';
 
-export class AnthropicAdapter {
-  private client: Anthropic | null = null;
+export class OpenAIAdapter {
+  private client: OpenAI | null = null;
   private isConfigured: boolean = false;
   private defaultModel: string;
 
   constructor() {
-    this.defaultModel = config.ai.models.anthropic;
+    this.defaultModel = config.ai.models.openai;
     this.initialize();
   }
 
   /**
-   * Initialize Anthropic client if API key is configured
+   * Initialize OpenAI client if API key is configured
    */
   private initialize(): void {
-    this.isConfigured = isExternalProviderConfigured('anthropic');
+    this.isConfigured = isExternalProviderConfigured('openai');
     
-    if (this.isConfigured && config.ai.apiKeys.anthropic) {
+    if (this.isConfigured && config.ai.apiKeys.openai) {
       try {
-        this.client = new Anthropic({
-          apiKey: config.ai.apiKeys.anthropic,
+        this.client = new OpenAI({
+          apiKey: config.ai.apiKeys.openai,
           timeout: 60000,
           maxRetries: 3,
         });
-        aiLogger.info('Anthropic adapter initialized successfully');
+        aiLogger.info('OpenAI adapter initialized successfully');
       } catch (error) {
-        aiLogger.error('Failed to initialize Anthropic adapter:', error);
+        aiLogger.error('Failed to initialize OpenAI adapter:', error);
         this.isConfigured = false;
       }
     } else {
-      aiLogger.warn('Anthropic adapter not configured - no API key provided');
+      aiLogger.warn('OpenAI adapter not configured - no API key provided');
     }
   }
 
   /**
-   * Check if Anthropic is available
+   * Check if OpenAI is available
    */
   async checkAvailability(): Promise<boolean> {
     if (!this.isConfigured || !this.client) {
@@ -45,15 +45,11 @@ export class AnthropicAdapter {
     }
 
     try {
-      // Test API connection with a simple message
-      await this.client.messages.create({
-        model: this.defaultModel,
-        max_tokens: 10,
-        messages: [{ role: 'user', content: 'Hi' }],
-      });
+      // Test API connection with a simple model list request
+      await this.client.models.list();
       return true;
     } catch (error) {
-      aiLogger.error('Anthropic availability check failed:', error);
+      aiLogger.error('OpenAI availability check failed:', error);
       return false;
     }
   }
@@ -62,14 +58,20 @@ export class AnthropicAdapter {
    * Get available models
    */
   async getModels(): Promise<string[]> {
-    // Anthropic doesn't have a models endpoint, return known models
-    return [
-      'claude-3-5-sonnet-20241022',
-      'claude-3-5-haiku-20241022',
-      'claude-3-opus-20240229',
-      'claude-3-sonnet-20240229',
-      'claude-3-haiku-20240307'
-    ];
+    if (!this.client) {
+      throw new Error('OpenAI client not initialized');
+    }
+
+    try {
+      const response = await this.client.models.list();
+      return response.data
+        .filter(model => model.id.includes('gpt'))
+        .map(model => model.id)
+        .sort();
+    } catch (error) {
+      aiLogger.error('Failed to get OpenAI models:', error);
+      throw new Error('Failed to fetch available models from OpenAI');
+    }
   }
 
   /**
@@ -79,7 +81,9 @@ export class AnthropicAdapter {
     message: string, 
     personalityState: PersonalityState | null, 
     conversationContext: Conversation[]
-  ): { system: string; messages: Anthropic.Messages.MessageParam[] } {
+  ): OpenAI.Chat.Completions.ChatCompletionMessageParam[] {
+    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [];
+
     // System message with personality
     let systemMessage = '';
     if (personalityState) {
@@ -97,7 +101,10 @@ export class AnthropicAdapter {
       systemMessage = 'You are Lacky, a friendly and helpful AI companion.';
     }
 
-    const messages: Anthropic.Messages.MessageParam[] = [];
+    messages.push({
+      role: 'system',
+      content: systemMessage
+    });
 
     // Add conversation context
     conversationContext.slice(-5).forEach(conv => {
@@ -121,11 +128,11 @@ export class AnthropicAdapter {
       content: message
     });
 
-    return { system: systemMessage, messages };
+    return messages;
   }
 
   /**
-   * Generate AI response using Anthropic Claude
+   * Generate AI response using OpenAI
    */
   async generateResponse(
     message: string,
@@ -138,60 +145,56 @@ export class AnthropicAdapter {
     } = {}
   ): Promise<AIResponse> {
     if (!this.client) {
-      throw new Error('Anthropic client not initialized - check API key configuration');
+      throw new Error('OpenAI client not initialized - check API key configuration');
     }
 
     const startTime = Date.now();
 
     try {
       const model = options.model || this.defaultModel;
-      const { system, messages } = this.buildMessages(message, personalityState, conversationContext);
+      const messages = this.buildMessages(message, personalityState, conversationContext);
 
-      aiLogger.info('Generating Anthropic response:', {
+      aiLogger.info('Generating OpenAI response:', {
         model,
         messageLength: message.length,
         contextCount: conversationContext.length,
         temperature: options.temperature || 0.7
       });
 
-      const response = await this.client.messages.create({
+      const completion = await this.client.chat.completions.create({
         model,
-        system,
         messages,
-        max_tokens: options.maxTokens || 1000,
         temperature: options.temperature || 0.7,
+        max_tokens: options.maxTokens || 1000,
         top_p: 0.9,
-        stop_sequences: ['User:', 'Human:']
+        frequency_penalty: 0.1,
+        presence_penalty: 0.1,
+        stop: ['User:', 'Human:']
       });
 
       const responseTime = Date.now() - startTime;
-      const content = response.content[0];
+      const content = completion.choices[0]?.message?.content?.trim() || '';
       
-      if (content.type !== 'text') {
-        throw new Error('Anthropic returned non-text response');
+      if (!content) {
+        throw new Error('OpenAI returned empty response');
       }
 
-      const textContent = content.text.trim();
-      if (!textContent) {
-        throw new Error('Anthropic returned empty response');
-      }
-
-      const tokensUsed = response.usage.input_tokens + response.usage.output_tokens;
+      const tokensUsed = completion.usage?.total_tokens || 0;
 
       const aiResponse: AIResponse = {
-        content: textContent,
-        model: response.model,
+        content,
+        model: completion.model,
         tokens_used: tokensUsed,
         response_time_ms: responseTime,
         metadata: {
-          stop_reason: response.stop_reason,
-          input_tokens: response.usage.input_tokens,
-          output_tokens: response.usage.output_tokens,
-          total_tokens: tokensUsed
+          finish_reason: completion.choices[0]?.finish_reason,
+          prompt_tokens: completion.usage?.prompt_tokens,
+          completion_tokens: completion.usage?.completion_tokens,
+          total_tokens: completion.usage?.total_tokens
         }
       };
 
-      aiLogger.info('Anthropic response generated successfully:', {
+      aiLogger.info('OpenAI response generated successfully:', {
         model: aiResponse.model,
         responseLength: aiResponse.content.length,
         tokensUsed: aiResponse.tokens_used,
@@ -202,22 +205,22 @@ export class AnthropicAdapter {
 
     } catch (error) {
       const responseTime = Date.now() - startTime;
-      aiLogger.error('Anthropic generation failed:', {
+      aiLogger.error('OpenAI generation failed:', {
         error: error instanceof Error ? error.message : 'Unknown error',
         responseTime,
         model: options.model || this.defaultModel
       });
 
       if (error instanceof Error) {
-        throw new Error(`Anthropic generation failed: ${error.message}`);
+        throw new Error(`OpenAI generation failed: ${error.message}`);
       } else {
-        throw new Error('Anthropic generation failed: Unknown error');
+        throw new Error('OpenAI generation failed: Unknown error');
       }
     }
   }
 
   /**
-   * Generate streaming response using Anthropic Claude
+   * Generate streaming response using OpenAI
    */
   async generateStreamingResponse(
     message: string,
@@ -231,25 +234,26 @@ export class AnthropicAdapter {
     } = {}
   ): Promise<AIResponse> {
     if (!this.client) {
-      throw new Error('Anthropic client not initialized - check API key configuration');
+      throw new Error('OpenAI client not initialized - check API key configuration');
     }
 
     const startTime = Date.now();
 
     try {
       const model = options.model || this.defaultModel;
-      const { system, messages } = this.buildMessages(message, personalityState, conversationContext);
+      const messages = this.buildMessages(message, personalityState, conversationContext);
 
       onChunk({ type: 'start' });
 
-      const stream = await this.client.messages.create({
+      const stream = await this.client.chat.completions.create({
         model,
-        system,
         messages,
-        max_tokens: options.maxTokens || 1000,
         temperature: options.temperature || 0.7,
+        max_tokens: options.maxTokens || 1000,
         top_p: 0.9,
-        stop_sequences: ['User:', 'Human:'],
+        frequency_penalty: 0.1,
+        presence_penalty: 0.1,
+        stop: ['User:', 'Human:'],
         stream: true
       });
 
@@ -258,23 +262,21 @@ export class AnthropicAdapter {
       let modelUsed = model;
 
       for await (const chunk of stream) {
-        if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-          fullResponse += chunk.delta.text;
-          onChunk({ type: 'content', content: chunk.delta.text });
+        const delta = chunk.choices[0]?.delta;
+        
+        if (delta?.content) {
+          fullResponse += delta.content;
+          onChunk({ type: 'content', content: delta.content });
         }
 
-        if (chunk.type === 'message_delta' && chunk.usage) {
-          tokensUsed = chunk.usage.output_tokens || 0;
+        if (chunk.model) {
+          modelUsed = chunk.model;
         }
 
-        if (chunk.type === 'message_start') {
-          modelUsed = chunk.message.model;
-          if (chunk.message.usage) {
-            tokensUsed += chunk.message.usage.input_tokens || 0;
-          }
-        }
-
-        if (chunk.type === 'message_stop') {
+        // Note: Token usage is not available in streaming mode for OpenAI
+        // We'll estimate based on content length
+        if (chunk.choices[0]?.finish_reason) {
+          tokensUsed = Math.ceil((message.length + fullResponse.length) / 4);
           break;
         }
       }
@@ -287,16 +289,17 @@ export class AnthropicAdapter {
         tokens_used: tokensUsed,
         response_time_ms: responseTime,
         metadata: {
-          streaming: true
+          streaming: true,
+          estimated_tokens: true
         }
       };
 
       onChunk({ type: 'end' });
 
-      aiLogger.info('Anthropic streaming response completed:', {
+      aiLogger.info('OpenAI streaming response completed:', {
         model: aiResponse.model,
         responseLength: aiResponse.content.length,
-        tokensUsed: aiResponse.tokens_used,
+        estimatedTokens: aiResponse.tokens_used,
         responseTime: aiResponse.response_time_ms
       });
 
@@ -304,7 +307,7 @@ export class AnthropicAdapter {
 
     } catch (error) {
       const responseTime = Date.now() - startTime;
-      aiLogger.error('Anthropic streaming generation failed:', {
+      aiLogger.error('OpenAI streaming generation failed:', {
         error: error instanceof Error ? error.message : 'Unknown error',
         responseTime
       });
@@ -328,7 +331,7 @@ export class AnthropicAdapter {
   }> {
     try {
       const available = await this.checkAvailability();
-      const models = await this.getModels();
+      const models = available ? await this.getModels().catch(() => []) : [];
 
       return {
         available,
@@ -345,4 +348,4 @@ export class AnthropicAdapter {
   }
 }
 
-export default AnthropicAdapter; 
+export default OpenAIAdapter; 
