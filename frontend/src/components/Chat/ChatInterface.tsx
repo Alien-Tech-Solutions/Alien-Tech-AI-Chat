@@ -259,21 +259,27 @@ const ChatInterface: React.FC = () => {
     }
   };
 
-  // Copy last response
+  // Copy last response to clipboard with user feedback
   const copyLastResponse = () => {
     const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant');
     if (lastAssistantMessage) {
-      navigator.clipboard.writeText(lastAssistantMessage.content);
-      // Could show a toast here
+      navigator.clipboard.writeText(lastAssistantMessage.content).then(() => {
+        // Visual feedback - button will show success state briefly
+        const btn = document.querySelector('[title="Copy Last Response"]');
+        if (btn) {
+          btn.classList.add('text-success');
+          setTimeout(() => btn.classList.remove('text-success'), 1500);
+        }
+      });
     }
   };
 
-  // Regenerate last response
+  // Regenerate last response by re-sending the last user message
   const regenerateResponse = async () => {
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
     if (lastUserMessage) {
       setInputValue(lastUserMessage.content);
-      // You could automatically send it too
+      // User can review and send manually, or modify before sending
     }
   };
 
