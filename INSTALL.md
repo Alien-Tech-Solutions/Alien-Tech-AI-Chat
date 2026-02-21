@@ -1,4 +1,4 @@
-# 🚀 Installation Guide - Lackadaisical AI Chat
+# 🚀 Installation Guide - Lackadaisical AI Chat v2-Alpha
 
 ## Quick Setup Options
 
@@ -67,6 +67,7 @@ That's it! Your AI companion is ready.
 - **Storage**: 2GB free space (more for AI models)
 - **CPU**: Any modern processor
 - **OS**: Windows 10+, macOS 10.15+, or Linux
+- **Node.js**: v18+ required
 
 **Recommended for Best Experience:**
 - **RAM**: 8GB or more
@@ -80,7 +81,7 @@ That's it! Your AI companion is ready.
 
 **Windows & Mac:**
 1. Go to [nodejs.org](https://nodejs.org/)
-2. Download the LTS version
+2. Download the LTS version (v18+)
 3. Run the installer
 4. Restart your computer
 
@@ -167,14 +168,26 @@ cd ..
 2. Download a model: `ollama pull llama2` (or your preferred model)
 3. The app will automatically use Ollama
 
-**Using External Providers:**
+**Using External Providers (v2-alpha supports 5 providers):**
 1. Copy `env.example` to `.env`
 2. Add your API keys:
    ```env
+   # Choose your default provider
+   AI_PROVIDER=ollama              # ollama, openai, anthropic, google, xai
+   
+   # Ollama Settings
+   OLLAMA_URL=http://localhost:11434
+   OLLAMA_MODEL=llama2
+   
+   # External AI Providers (optional - add any you have)
    OPENAI_API_KEY=your_openai_key
    ANTHROPIC_API_KEY=your_anthropic_key
    GOOGLE_API_KEY=your_google_key
    XAI_API_KEY=your_xai_key
+   
+   # JWT Authentication (v2-alpha)
+   JWT_SECRET=your_secure_random_string_at_least_32_chars
+   JWT_REFRESH_SECRET=another_secure_random_string
    ```
 
 #### 6. Start the Application
@@ -208,12 +221,12 @@ cd frontend && npm run dev
 Create a `.env` file in the root directory:
 
 ```env
-# AI Provider Settings
-AI_PROVIDER=ollama              # ollama, openai, anthropic, google, xai
+# AI Provider Settings (v2-alpha supports hot-swapping)
+AI_PROVIDER=ollama              # Default: ollama, openai, anthropic, google, xai
 OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=llama2
 
-# External AI Providers (optional)
+# External AI Providers (optional - configure any you want)
 OPENAI_API_KEY=your_key_here
 ANTHROPIC_API_KEY=your_key_here
 GOOGLE_API_KEY=your_key_here
@@ -228,9 +241,20 @@ BACKEND_PORT=3001
 FRONTEND_PORT=3000
 CORS_ORIGIN=http://localhost:3000
 
-# Memory Settings
-MAX_MEMORY_CONTEXT=10000       # Max tokens in memory
-MEMORY_RETENTION_DAYS=365      # How long to keep memories
+# Authentication (v2-alpha)
+JWT_SECRET=your_super_secret_jwt_key_at_least_32_characters
+JWT_REFRESH_SECRET=another_super_secret_key_for_refresh_tokens
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Memory Settings (v2-alpha enhanced)
+MAX_CONVERSATION_MESSAGES=1000   # Up from 50
+MAX_CONTEXT_TOKENS=131072        # 128K tokens
+CROSS_SESSION_ENABLED=true       # Reference past sessions
+
+# Web Fetching (v2-alpha)
+SEARCH_PROVIDER=duckduckgo       # duckduckgo, brave, serpapi
+SERPAPI_KEY=optional_serpapi_key
 
 # Logging
 LOG_LEVEL=info                 # debug, info, warn, error
@@ -251,15 +275,10 @@ ollama pull mistral            # Alternative model
 ollama list
 ```
 
-**Configure Model in App:**
-Edit `backend/src/config/settings.ts`:
-```typescript
-export const AI_CONFIG = {
-  provider: 'ollama',
-  model: 'llama2:7b',  // Change this to your preferred model
-  // ...
-};
-```
+**Hot-Swap Models (v2-alpha):**
+You can switch models at runtime without restart:
+- Use Settings → Models in the UI
+- Or call `POST /api/models/switch` API
 
 ## Troubleshooting
 
@@ -440,10 +459,11 @@ npm run build
 - Use environment variables for secrets
 - Regular security updates
 
-### Access Control
+### Access Control (v2-alpha)
+- JWT-based authentication built-in
+- Rate limiting on auth endpoints (5 per 15 min)
 - Change default ports in production
 - Use authentication if exposing to network
-- Regular password updates for accounts
 - Monitor access logs
 
 ## Next Steps
@@ -451,11 +471,13 @@ npm run build
 After installation:
 
 1. **Start chatting** - Begin conversations with your AI companion
-2. **Explore memory** - Test how it remembers conversations
-3. **Try sessions** - Create different conversation contexts
-4. **Customize settings** - Adjust the AI model and behavior
-5. **Install plugins** - Add weather, horoscope, and other features
-6. **Join the community** - Share your experience and get help
+2. **Explore emotional support** - Lacky is a friend who understands ALL emotions
+3. **Try hot-swap models** - Switch between AI providers on the fly
+4. **Enable cross-session memory** - Let Lacky remember past conversations
+5. **Customize settings** - Adjust AI model, memory limits, and behavior
+6. **Install plugins** - Add weather, horoscope, and other features
+7. **Try web fetching** - Ask Lacky about current events
+8. **Join the community** - Share your experience and get help
 
 **Welcome to your new AI companion!** 🎉
 
