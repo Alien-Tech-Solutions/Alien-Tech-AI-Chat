@@ -11,7 +11,9 @@ import {
   Theme, 
   Toast, 
   Modal, 
-  UserSettings
+  UserSettings,
+  UserMemoryPreferences,
+  SessionSummary
 } from '../types';
 
 interface AppStore extends AppState {
@@ -19,6 +21,10 @@ interface AppStore extends AppState {
   contextWindow: any[] | null;
   contextLoading: boolean;
   contextError: string | null;
+  // Enhanced Memory state
+  memoryPreferences: UserMemoryPreferences | null;
+  sessionSummaries: SessionSummary[];
+  crossSessionEnabled: boolean;
   // Context/Memory actions
   fetchContext: (sessionId: string) => Promise<void>;
   updateContext: (sessionId: string, context: any[]) => Promise<void>;
@@ -26,6 +32,12 @@ interface AppStore extends AppState {
   fetchMemoryStats: (sessionId: string) => Promise<void>;
   clearMemoryStats: () => void;
   getContextWindow: (sessionId: string, maxTokens?: number) => Promise<string>;
+  // Enhanced Memory actions
+  fetchMemoryPreferences: (userId?: string) => Promise<void>;
+  updateMemoryPreferences: (preferences: Partial<UserMemoryPreferences>, userId?: string) => Promise<void>;
+  toggleCrossSession: (enabled: boolean, userId?: string) => Promise<void>;
+  fetchSessionSummaries: (excludeSessionId?: string, limit?: number) => Promise<void>;
+  searchAllSessions: (query: string, options?: { excludeSessionId?: string; limit?: number }) => Promise<any>;
   // Chat actions
   setCurrentSession: (session: ChatSession | null) => void;
   addSession: (session: ChatSession) => void;
@@ -84,6 +96,9 @@ const initialState: AppState & {
     averageSentiment: number;
   } | null;
   memoryStatsLoading: boolean;
+  memoryPreferences: UserMemoryPreferences | null;
+  sessionSummaries: SessionSummary[];
+  crossSessionEnabled: boolean;
 } = {
   // Chat
   currentSession: null,
@@ -129,6 +144,11 @@ const initialState: AppState & {
   contextError: null,
   memoryStats: null,
   memoryStatsLoading: false,
+  
+  // Enhanced Memory
+  memoryPreferences: null,
+  sessionSummaries: [],
+  crossSessionEnabled: true, // Enabled by default for session continuity
 };
 
 export const useAppStore = create<AppStore>()(
@@ -311,6 +331,63 @@ export const useAppStore = create<AppStore>()(
           }
         },
 
+        // Enhanced Memory actions
+        fetchMemoryPreferences: async (userId?: string) => {
+          try {
+            const response = await api.getMemoryPreferences(userId);
+            if (response.data) {
+              set({ 
+                memoryPreferences: response.data,
+                crossSessionEnabled: response.data.crossSessionEnabled
+              });
+            }
+          } catch (err: any) {
+            console.error('Failed to fetch memory preferences:', err);
+          }
+        },
+        updateMemoryPreferences: async (preferences: Partial<UserMemoryPreferences>, userId?: string) => {
+          try {
+            const response = await api.updateMemoryPreferences(preferences, userId);
+            if (response.data) {
+              set({ 
+                memoryPreferences: response.data,
+                crossSessionEnabled: response.data.crossSessionEnabled
+              });
+            }
+          } catch (err: any) {
+            console.error('Failed to update memory preferences:', err);
+          }
+        },
+        toggleCrossSession: async (enabled: boolean, userId?: string) => {
+          try {
+            const response = await api.toggleCrossSessionMemory(enabled, userId);
+            if (response.data) {
+              set({ crossSessionEnabled: response.data.crossSessionEnabled });
+            }
+          } catch (err: any) {
+            console.error('Failed to toggle cross-session:', err);
+          }
+        },
+        fetchSessionSummaries: async (excludeSessionId?: string, limit?: number) => {
+          try {
+            const response = await api.getSessionSummaries(excludeSessionId, limit);
+            if (response.data) {
+              set({ sessionSummaries: response.data.summaries });
+            }
+          } catch (err: any) {
+            console.error('Failed to fetch session summaries:', err);
+          }
+        },
+        searchAllSessions: async (query: string, options?: { excludeSessionId?: string; limit?: number }) => {
+          try {
+            const response = await api.searchAllSessions(query, options);
+            return response.data;
+          } catch (err: any) {
+            console.error('Failed to search all sessions:', err);
+            return null;
+          }
+        },
+
         // Utility actions
         clearAll: () => set(initialState),
       }),
@@ -325,6 +402,8 @@ export const useAppStore = create<AppStore>()(
           contextWindow: state.contextWindow,
           journalEntries: state.journalEntries,
           plugins: state.plugins,
+          crossSessionEnabled: state.crossSessionEnabled,
+          memoryPreferences: state.memoryPreferences,
         }),
       }
     ),

@@ -268,6 +268,64 @@ export interface MemoryStats {
   averageSentiment: number;
 }
 
+// Enhanced Memory types for cross-session support
+export interface UserMemoryPreferences {
+  userId: string;
+  crossSessionEnabled: boolean;
+  maxCrossSessionHistory: number;
+  contextTokenLimit: number;
+  maxContextMessages: number;
+  autoSummarize: boolean;
+  privacyLevel: 'strict' | 'normal' | 'relaxed';
+  summaryThreshold: number;
+}
+
+export interface SessionSummary {
+  sessionId: string;
+  sessionName: string;
+  messageCount: number;
+  topics: string[];
+  themes: string[];
+  emotionalTrend: string;
+  lastActive: string;
+  summary: string;
+}
+
+export interface CrossSessionContext {
+  includedSessions: string[];
+  sessionSummaries: SessionSummary[];
+  totalCrossSessionMessages: number;
+}
+
+export interface EnhancedContextWindow {
+  recentMessages: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: string;
+    sentiment?: number;
+    sessionId?: string;
+  }>;
+  summary: string;
+  topics: string[];
+  emotionalTrend: string;
+  conversationDepth: number;
+  totalTokens: number;
+  crossSessionContext?: CrossSessionContext;
+}
+
+export interface MemorySearchResult {
+  entries: Array<{
+    sessionId: string;
+    userMessage: string;
+    aiResponse: string;
+    timestamp: string;
+    sentimentLabel: string;
+    relevanceScore: number;
+  }>;
+  totalFound: number;
+  relevanceScores: number[];
+}
+
 // API Error types
 export interface ApiError {
   code: string;

@@ -7,7 +7,11 @@ import {
   JournalEntry, 
   PluginState, 
   PluginResult,
-  MemoryStats
+  MemoryStats,
+  UserMemoryPreferences,
+  SessionSummary,
+  EnhancedContextWindow,
+  MemorySearchResult
 } from '../types';
 
 class ApiService {
@@ -189,6 +193,103 @@ class ApiService {
 
   async getMemoryStats(sessionId: string): Promise<ApiResponse<MemoryStats>> {
     const response = await this.api.get(`/api/sessions/${sessionId}/memory/stats`);
+    return response.data;
+  }
+
+  // Enhanced Memory endpoints for cross-session support
+  async getMemoryPreferences(userId?: string): Promise<ApiResponse<UserMemoryPreferences>> {
+    const response = await this.api.get('/api/v1/chat/preferences', {
+      params: userId ? { userId } : {}
+    });
+    return response.data;
+  }
+
+  async updateMemoryPreferences(
+    preferences: Partial<UserMemoryPreferences>,
+    userId?: string
+  ): Promise<ApiResponse<UserMemoryPreferences>> {
+    const response = await this.api.put('/api/v1/chat/preferences', {
+      ...preferences,
+      userId: userId || 'default'
+    });
+    return response.data;
+  }
+
+  async toggleCrossSessionMemory(enabled: boolean, userId?: string): Promise<ApiResponse<{ crossSessionEnabled: boolean }>> {
+    const response = await this.api.post('/api/v1/chat/preferences/toggle-cross-session', {
+      enabled,
+      userId: userId || 'default'
+    });
+    return response.data;
+  }
+
+  async getSessionSummaries(excludeSessionId?: string, limit?: number): Promise<ApiResponse<{ summaries: SessionSummary[]; count: number }>> {
+    const response = await this.api.get('/api/v1/chat/sessions/summaries', {
+      params: {
+        ...(excludeSessionId && { excludeSessionId }),
+        ...(limit && { limit })
+      }
+    });
+    return response.data;
+  }
+
+  async searchAllSessions(
+    query: string,
+    options?: { excludeSessionId?: string; limit?: number; minRelevance?: number }
+  ): Promise<ApiResponse<MemorySearchResult>> {
+    const response = await this.api.get('/api/v1/chat/search/all', {
+      params: {
+        q: query,
+        ...options
+      }
+    });
+    return response.data;
+  }
+
+  async getEnhancedContextWindow(
+    sessionId: string,
+    options?: {
+      crossSession?: boolean;
+      userId?: string;
+      maxTokens?: number;
+      query?: string;
+    }
+  ): Promise<ApiResponse<{ sessionId: string; contextWindow: EnhancedContextWindow; crossSessionIncluded: boolean }>> {
+    const response = await this.api.get(`/api/v1/chat/context/full/${sessionId}`, {
+      params: {
+        crossSession: options?.crossSession !== false,
+        userId: options?.userId || 'default',
+        ...(options?.maxTokens && { maxTokens: options.maxTokens }),
+        ...(options?.query && { query: options.query })
+      }
+    });
+    return response.data;
+  }
+
+  async getSessionAnalytics(sessionId: string): Promise<ApiResponse<any>> {
+    const response = await this.api.get(`/api/v1/chat/analytics/${sessionId}`);
+    return response.data;
+  }
+
+  async getGlobalAnalytics(days?: number): Promise<ApiResponse<any>> {
+    const response = await this.api.get('/api/v1/chat/analytics/global', {
+      params: days ? { days } : {}
+    });
+    return response.data;
+  }
+
+  async getActiveSessions(): Promise<ApiResponse<{ sessions: any[]; count: number }>> {
+    const response = await this.api.get('/api/v1/chat/sessions/active');
+    return response.data;
+  }
+
+  async getResourceStatus(): Promise<ApiResponse<any>> {
+    const response = await this.api.get('/api/v1/chat/resources');
+    return response.data;
+  }
+
+  async flushPendingData(): Promise<ApiResponse<{ message: string }>> {
+    const response = await this.api.post('/api/v1/chat/flush');
     return response.data;
   }
 
