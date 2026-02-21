@@ -291,9 +291,20 @@ export interface SessionSummary {
   summary: string;
 }
 
+// Summary shape used specifically for cross-session context responses,
+// which omit certain fields like `themes` and `emotionalTrend`.
+export interface CrossSessionSummary {
+  sessionId: string;
+  sessionName: string;
+  messageCount: number;
+  topics: string[];
+  lastActive: string;
+  summary: string;
+}
+
 export interface CrossSessionContext {
   includedSessions: string[];
-  sessionSummaries: SessionSummary[];
+  sessionSummaries: CrossSessionSummary[];
   totalCrossSessionMessages: number;
 }
 
