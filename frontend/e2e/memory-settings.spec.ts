@@ -42,11 +42,14 @@ test.describe('Memory Settings', () => {
     const crossSessionSection = page.locator('div').filter({ hasText: /^Cross-Session Memory/ }).first();
     const toggle = crossSessionSection.locator('input[type="checkbox"]');
     
+    // Wait for toggle to be visible and interactable
+    await toggle.waitFor({ state: 'attached' });
+    
     // Get initial state
     const initialState = await toggle.isChecked();
     
-    // Click to toggle
-    await toggle.click({ force: true });
+    // Click the label/container instead of the hidden checkbox input
+    await crossSessionSection.locator('label').click();
     
     // Verify state changed
     const newState = await toggle.isChecked();
@@ -93,10 +96,9 @@ test.describe('Memory Settings', () => {
     await page.getByRole('button', { name: /memory/i }).click();
     await page.waitForSelector('text=Cross-Session Memory', { timeout: 10000 });
 
-    // Make a change
+    // Make a change by clicking the label
     const crossSessionSection = page.locator('div').filter({ hasText: /^Cross-Session Memory/ }).first();
-    const toggle = crossSessionSection.locator('input[type="checkbox"]');
-    await toggle.click({ force: true });
+    await crossSessionSection.locator('label').click();
 
     // Verify unsaved changes indicator appears
     await expect(page.getByText('Unsaved changes')).toBeVisible();
