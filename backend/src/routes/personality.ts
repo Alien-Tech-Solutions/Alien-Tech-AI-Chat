@@ -3,7 +3,7 @@ import { DatabaseService } from '../services/DatabaseService';
 import { asyncHandler, createValidationError } from '../middleware/errorHandler';
 import { PersonalityState, MoodState } from '../types';
 import { apiLogger } from '../utils/logger';
-import { config } from '../../../config/settings';
+import { config } from '../config/settings';
 
 const router = Router();
 const db = new DatabaseService();  // FIXME: This creates duplicate database instances

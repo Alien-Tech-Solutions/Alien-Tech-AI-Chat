@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { RateLimiterMemory, RateLimiterRes } from 'rate-limiter-flexible';
 import { securityLogger as logger } from '../utils/logger';
 import { createRateLimitError } from './errorHandler';
-import { config } from '../../../config/settings';
+import { config } from '../config/settings';
 
 // Rate limiter configurations
 const rateLimiters = {

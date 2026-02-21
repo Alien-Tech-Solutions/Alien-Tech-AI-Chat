@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { v4 as uuidv4 } from 'uuid';
 import { dbLogger } from '../utils/logger';
-import { config } from '../../../config/settings';
+import { config } from '../config/settings';
 import {
   Conversation,
   PersonalityState,
@@ -343,8 +343,8 @@ export class DatabaseService {
   }
 
   async updatePersonalityState(updates: Partial<PersonalityState>): Promise<void> {
-    const setClause = [];
-    const params = [];
+    const setClause: string[] = [];
+    const params: (string | number | boolean | null)[] = [];
 
     for (const [key, value] of Object.entries(updates)) {
       if (key === 'id') continue; // Skip ID updates
@@ -355,7 +355,7 @@ export class DatabaseService {
       if (['static_traits', 'current_mood', 'mood_history', 'learning_data'].includes(key)) {
         params.push(JSON.stringify(value));
       } else {
-        params.push(value);
+        params.push(value as string | number | boolean | null);
       }
     }
 
@@ -684,8 +684,8 @@ export class DatabaseService {
   }
 
   async updatePluginState(pluginName: string, updates: Partial<PluginState>): Promise<void> {
-    const setClause = [];
-    const params = [];
+    const setClause: string[] = [];
+    const params: (string | number | boolean | null)[] = [];
 
     for (const [key, value] of Object.entries(updates)) {
       if (key === 'plugin_name') continue; // Skip plugin name updates
@@ -696,7 +696,7 @@ export class DatabaseService {
       if (['config', 'state_data', 'permissions'].includes(key)) {
         params.push(JSON.stringify(value));
       } else {
-        params.push(value);
+        params.push(value as string | number | boolean | null);
       }
     }
 

@@ -13,7 +13,7 @@ import fs from 'fs';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 // Import configuration and utilities
-import { config, validateProductionSecrets, getDatabasePath } from '../../config/settings';
+import { config, validateProductionSecrets, getDatabasePath } from './config/settings';
 import { logger } from './utils/logger';
 import { DatabaseService } from './services/DatabaseService';
 import { PersonalityService } from './services/PersonalityService';

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import Database from 'better-sqlite3';
-import { config } from '../../../config/settings';
+import { config } from '../config/settings';
 
 export async function initializeDatabase(): Promise<Database.Database> {
   try {

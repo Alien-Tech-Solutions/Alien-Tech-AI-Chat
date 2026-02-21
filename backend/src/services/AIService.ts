@@ -1,11 +1,11 @@
 import { AIResponse, StreamChunk, Conversation, PersonalityState, AIProviderType } from '../types';
 import { aiLogger } from '../utils/logger';
-import { config } from '../../../config/settings';
-import OllamaWrapper from '../../../ai/ollama/customWrapper';
-import { OpenAIAdapter } from '../../../ai/externalProviders/OpenAIAdapter';
-import { AnthropicAdapter } from '../../../ai/externalProviders/AnthropicAdapter';
-import { GoogleAdapter } from '../../../ai/externalProviders/GoogleAdapter';
-import { xAIAdapter } from '../../../ai/externalProviders/xAIAdapter';
+import { config } from '../config/settings';
+import OllamaWrapper from '../ai/ollama/customWrapper';
+import { OpenAIAdapter } from '../ai/externalProviders/OpenAIAdapter';
+import { AnthropicAdapter } from '../ai/externalProviders/AnthropicAdapter';
+import { GoogleAdapter } from '../ai/externalProviders/GoogleAdapter';
+import { xAIAdapter } from '../ai/externalProviders/xAIAdapter';
 import { DatabaseService } from './DatabaseService';
 import { MemoryService } from './MemoryService';
 import { PersonalityService } from './PersonalityService';
@@ -25,6 +25,9 @@ interface AIServiceOptions {
 export class AIService {
   private ollamaWrapper: OllamaWrapper;
   private openaiAdapter: OpenAIAdapter;
+  private anthropicAdapter: AnthropicAdapter;
+  private googleAdapter: GoogleAdapter;
+  private xaiAdapter: xAIAdapter;
   private databaseService: DatabaseService;
   private memoryService: MemoryService;
   private personalityService: PersonalityService;
@@ -36,12 +39,18 @@ export class AIService {
     this.personalityService = new PersonalityService(databaseService);
     this.ollamaWrapper = new OllamaWrapper();
     this.openaiAdapter = new OpenAIAdapter();
+    this.anthropicAdapter = new AnthropicAdapter();
+    this.googleAdapter = new GoogleAdapter();
+    this.xaiAdapter = new xAIAdapter();
     this.defaultProvider = config.ai.primaryProvider as AIProviderType;
 
     aiLogger.info('AI Service initialized', {
       defaultProvider: this.defaultProvider,
       ollamaConfigured: true,
-      openaiConfigured: config.ai.apiKeys.openai ? true : false
+      openaiConfigured: config.ai.apiKeys.openai ? true : false,
+      anthropicConfigured: config.ai.apiKeys.anthropic ? true : false,
+      googleConfigured: config.ai.apiKeys.google ? true : false,
+      xaiConfigured: config.ai.apiKeys.xai ? true : false
     });
   }
 
@@ -73,7 +82,29 @@ export class AIService {
       providers.openai = { available: false, models: [], configured: false };
     }
 
-    // TODO: Add other providers (Anthropic, Google, xAI) when implemented
+    try {
+      // Check Anthropic
+      providers.anthropic = await this.anthropicAdapter.getStatus();
+    } catch (error) {
+      aiLogger.error('Failed to get Anthropic status:', error);
+      providers.anthropic = { available: false, models: [], configured: false };
+    }
+
+    try {
+      // Check Google
+      providers.google = await this.googleAdapter.getStatus();
+    } catch (error) {
+      aiLogger.error('Failed to get Google status:', error);
+      providers.google = { available: false, models: [], configured: false };
+    }
+
+    try {
+      // Check xAI
+      providers.xai = await this.xaiAdapter.getStatus();
+    } catch (error) {
+      aiLogger.error('Failed to get xAI status:', error);
+      providers.xai = { available: false, models: [], configured: false };
+    }
 
     return providers;
   }
@@ -280,6 +311,33 @@ export class AIService {
           );
           break;
 
+        case 'anthropic':
+          response = await this.anthropicAdapter.generateResponse(
+            message,
+            conversationContext,
+            personalityState,
+            providerOptions
+          );
+          break;
+
+        case 'google':
+          response = await this.googleAdapter.generateResponse(
+            message,
+            conversationContext,
+            personalityState,
+            providerOptions
+          );
+          break;
+
+        case 'xai':
+          response = await this.xaiAdapter.generateResponse(
+            message,
+            conversationContext,
+            personalityState,
+            providerOptions
+          );
+          break;
+
         default:
           throw new Error(`Provider ${providerInfo.provider} not yet implemented`);
       }
@@ -387,6 +445,36 @@ export class AIService {
           );
           break;
 
+        case 'anthropic':
+          response = await this.anthropicAdapter.generateStreamingResponse(
+            message,
+            conversationContext,
+            personalityState,
+            onChunk,
+            streamingOptions
+          );
+          break;
+
+        case 'google':
+          response = await this.googleAdapter.generateStreamingResponse(
+            message,
+            conversationContext,
+            personalityState,
+            onChunk,
+            streamingOptions
+          );
+          break;
+
+        case 'xai':
+          response = await this.xaiAdapter.generateStreamingResponse(
+            message,
+            conversationContext,
+            personalityState,
+            onChunk,
+            streamingOptions
+          );
+          break;
+
         default:
           onChunk({ 
             type: 'error', 
@@ -476,6 +564,69 @@ export class AIService {
       };
     } catch (error) {
       results.openai = {
+        available: false,
+        testMessage,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+
+    // Test Anthropic
+    try {
+      const startTime = Date.now();
+      const response = await this.anthropicAdapter.generateResponse(testMessage, [], null, {
+        temperature: 0.7,
+        maxTokens: 50
+      });
+      results.anthropic = {
+        available: true,
+        testMessage,
+        testResponse: response.content,
+        responseTime: Date.now() - startTime
+      };
+    } catch (error) {
+      results.anthropic = {
+        available: false,
+        testMessage,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+
+    // Test Google
+    try {
+      const startTime = Date.now();
+      const response = await this.googleAdapter.generateResponse(testMessage, [], null, {
+        temperature: 0.7,
+        maxTokens: 50
+      });
+      results.google = {
+        available: true,
+        testMessage,
+        testResponse: response.content,
+        responseTime: Date.now() - startTime
+      };
+    } catch (error) {
+      results.google = {
+        available: false,
+        testMessage,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+
+    // Test xAI
+    try {
+      const startTime = Date.now();
+      const response = await this.xaiAdapter.generateResponse(testMessage, [], null, {
+        temperature: 0.7,
+        maxTokens: 50
+      });
+      results.xai = {
+        available: true,
+        testMessage,
+        testResponse: response.content,
+        responseTime: Date.now() - startTime
+      };
+    } catch (error) {
+      results.xai = {
         available: false,
         testMessage,
         error: error instanceof Error ? error.message : 'Unknown error'

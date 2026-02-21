@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from 'uuid';
 import { pluginLogger } from '../utils/logger';
-import { config } from '../../../config/settings';
+import { config } from '../config/settings';
 import { DatabaseService, databaseService } from './DatabaseService';
 import {
   Plugin,

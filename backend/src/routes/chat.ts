@@ -6,7 +6,7 @@ import { asyncHandler, createValidationError, createNotFoundError } from '../mid
 import { endpointRateLimiter } from '../middleware/rateLimiter';
 import { ChatRequest, ChatResponse, Conversation, StreamChunk } from '../types';
 import { aiLogger, apiLogger } from '../utils/logger';
-import { config } from '../../../config/settings';
+import { config } from '../config/settings';
 import { v4 as uuidv4 } from 'uuid';
 
 // Export a function that creates the router with dependencies
@@ -574,7 +574,14 @@ router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
   // Get database stats
   const dbStats = await db.getDatabaseStats();
   
-  let sessionStats = null;
+  let sessionStats: {
+    session_id: string;
+    message_count: number;
+    total_tokens: number;
+    avg_response_time_ms: number;
+    first_message: string | undefined;
+    last_message: string | undefined;
+  } | null = null;
   if (sessionId) {
     const conversations = await db.getConversationsBySession(sessionId);
     const totalTokens = conversations.reduce((sum, conv) => sum + (conv.tokens_used || 0), 0);

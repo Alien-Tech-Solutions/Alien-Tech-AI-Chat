@@ -7,7 +7,7 @@ import { DatabaseService } from './DatabaseService';
 import AIService from './AIService';
 import { WebSocketMessage, StreamChunk, ChatRequest, SentimentAnalysis } from '../types';
 import { SentimentAnalyzer } from '../middleware/sentiment';
-import { config } from '../../../config/settings';
+import { config } from '../config/settings';
 
 interface WebSocketClient {
   id: string;
