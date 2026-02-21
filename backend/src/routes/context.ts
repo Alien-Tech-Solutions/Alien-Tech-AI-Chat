@@ -108,9 +108,6 @@ router.get('/sessions/:id/memory/stats', asyncHandler(async (req: Request, res: 
   return router;
 }
 
-// Default export for backwards compatibility
-const defaultDatabaseService = new DatabaseService();
-defaultDatabaseService.initialize().catch(error => {
-  apiLogger.error('[CONTEXT] Failed to initialize default database service:', error);
-});
-export default createContextRoutes(defaultDatabaseService);
+// Default export for backwards compatibility using singleton instance
+import { databaseService } from '../services/DatabaseService';
+export default createContextRoutes(databaseService);

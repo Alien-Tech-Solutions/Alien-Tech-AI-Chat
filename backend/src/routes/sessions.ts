@@ -520,9 +520,6 @@ router.post('/:sessionId/export', asyncHandler(async (req: Request, res: Respons
   return router;
 }
 
-// Default export for backwards compatibility
-const defaultDb = new DatabaseService();
-defaultDb.initialize().catch(error => {
-  apiLogger.error('[SESSIONS] Failed to initialize default database service:', error);
-});
-export default createSessionRoutes(defaultDb); 
+// Default export for backwards compatibility using singleton instance
+import { databaseService } from '../services/DatabaseService';
+export default createSessionRoutes(databaseService);

@@ -1,12 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { DatabaseService } from '../services/DatabaseService';
+import { DatabaseService, databaseService } from '../services/DatabaseService';
 import { HealthStatus } from '../types';
 import { asyncHandler } from '../middleware/errorHandler';
 import { apiLogger } from '../utils/logger';
 import { config } from '../config/settings';
 
 const router = Router();
-const db = new DatabaseService();  // FIXME: This creates duplicate database instances
+
+// Use the singleton database service instead of creating duplicate instances
+const db = databaseService;
 
 /**
  * Check database health
@@ -128,7 +130,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
         ai_providers: aiProviders,
         plugins: plugins
       },
-      version: '1.0.0'
+      version: '2.0.0-alpha'
     };
     
     const responseTime = Date.now() - startTime;
@@ -164,7 +166,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
         ai_providers: {},
         plugins: {}
       },
-      version: '1.0.0'
+      version: '2.0.0-alpha'
     };
     
     res.status(503).json({
@@ -184,7 +186,7 @@ router.get('/ping', (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-    version: '1.0.0'
+    version: '2.0.0-alpha'
   });
 });
 
@@ -208,7 +210,7 @@ router.get('/detailed', asyncHandler(async (req: Request, res: Response) => {
     const detailedHealth = {
       status: overallStatus,
       timestamp: new Date().toISOString(),
-      version: '1.0.0',
+      version: '2.0.0-alpha',
       system: {
         uptime: process.uptime(),
         memory: process.memoryUsage(),

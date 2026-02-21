@@ -516,7 +516,7 @@ export class DatabaseService {
     }
     
     const result = await this.executeQuery<any[]>(query, params);
-    return result.data[0].count;
+    return result.data[0]?.count ?? 0;
   }
 
   async updateJournalEntry(id: string, updates: Partial<JournalEntry>): Promise<void> {
@@ -813,7 +813,12 @@ export class DatabaseService {
     `;
     
     const result = await this.executeQuery<any[]>(query);
-    return result.data[0];
+    return result.data[0] ?? {
+      total_conversations: 0,
+      total_journal_entries: 0,
+      total_sessions: 0,
+      active_plugins: 0,
+    };
   }
 
   async cleanupOldData(daysToKeep: number = 365): Promise<void> {
@@ -832,6 +837,69 @@ export class DatabaseService {
     const result = await this.executeStatement(query, [cutoffDate.toISOString(), cutoffDate.toISOString()]);
     
     dbLogger.info(`Cleaned up ${result.affected_rows} old conversations older than ${daysToKeep} days`);
+  }
+
+  /**
+   * Delete all conversation history for a specific session
+   */
+  async deleteConversationHistory(sessionId: string): Promise<number> {
+    const query = `DELETE FROM conversations WHERE session_id = ?`;
+    const result = await this.executeStatement(query, [sessionId]);
+    
+    // Also update session message count
+    await this.executeStatement(
+      `UPDATE sessions SET message_count = 0, last_active = CURRENT_TIMESTAMP WHERE id = ?`,
+      [sessionId]
+    );
+    
+    dbLogger.info(`Deleted ${result.affected_rows} conversations for session: ${sessionId}`);
+    return result.affected_rows || 0;
+  }
+
+  /**
+   * Delete specific conversation by ID
+   */
+  async deleteConversation(conversationId: number): Promise<boolean> {
+    const query = `DELETE FROM conversations WHERE id = ?`;
+    const result = await this.executeStatement(query, [conversationId]);
+    
+    if (result.affected_rows && result.affected_rows > 0) {
+      dbLogger.info(`Deleted conversation: ${conversationId}`);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Update an existing conversation
+   */
+  async updateConversation(
+    conversationId: number, 
+    updates: Partial<Conversation>
+  ): Promise<void> {
+    const fields: string[] = [];
+    const params: any[] = [];
+    
+    Object.entries(updates).forEach(([key, value]) => {
+      if (key !== 'id' && key !== 'created_at' && value !== undefined) {
+        fields.push(`${key} = ?`);
+        if (key === 'context_tags') {
+          params.push(JSON.stringify(value));
+        } else {
+          params.push(value);
+        }
+      }
+    });
+    
+    if (fields.length === 0) return;
+    
+    fields.push('updated_at = CURRENT_TIMESTAMP');
+    params.push(conversationId);
+    
+    const query = `UPDATE conversations SET ${fields.join(', ')} WHERE id = ?`;
+    await this.executeStatement(query, params);
+    
+    dbLogger.info(`Updated conversation: ${conversationId}`);
   }
 }
 

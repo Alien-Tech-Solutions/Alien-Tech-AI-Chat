@@ -180,9 +180,6 @@ router.get('/status', async (req: Request, res: Response) => {
   return router;
 }
 
-// Default export for backwards compatibility
-const defaultDbService = new DatabaseService();
-defaultDbService.initialize().catch(error => {
-  aiLogger.error('[COMPANION] Failed to initialize default database service:', error);
-});
-export default createCompanionRoutes(defaultDbService);
+// Default export for backwards compatibility using singleton instance
+import { databaseService } from '../services/DatabaseService';
+export default createCompanionRoutes(databaseService);

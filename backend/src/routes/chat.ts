@@ -4,7 +4,7 @@ import AIService from '../services/AIService';
 import { ConversationManager } from '../services/ConversationManager';
 import { ResourceOptimizer } from '../services/ResourceOptimizer';
 import { EnhancedMemoryService } from '../services/EnhancedMemoryService';
-import { sentimentMiddleware, createSentimentMiddleware } from '../middleware/sentiment';
+import { sentimentMiddleware, createSentimentMiddleware, SentimentAnalyzer } from '../middleware/sentiment';
 import { asyncHandler, createValidationError, createNotFoundError } from '../middleware/errorHandler';
 import { endpointRateLimiter } from '../middleware/rateLimiter';
 import { ChatRequest, ChatResponse, Conversation, StreamChunk } from '../types';
@@ -18,6 +18,7 @@ export default function createChatRoutes(db: DatabaseService, aiService: AIServi
 
   // Initialize services for full context tracking
   const conversationManager = new ConversationManager(db);
+  const sentimentAnalyzer = SentimentAnalyzer.getInstance(db);
   const resourceOptimizer = ResourceOptimizer.getInstance();
   const enhancedMemory = new EnhancedMemoryService(db);
 
@@ -405,17 +406,20 @@ router.get('/search', asyncHandler(async (req: Request, res: Response) => {
 router.delete('/history/:sessionId', asyncHandler(async (req: Request, res: Response) => {
   const sessionId = req.params.sessionId;
 
-  // This would require implementing a delete method in DatabaseService
-  // For now, we'll return a placeholder response
+  // Delete conversation history using database service
+  const deletedCount = await db.deleteConversationHistory(sessionId);
   
-  apiLogger.info('Conversation history deletion requested', {
+  apiLogger.info('Conversation history deleted', {
     sessionId,
+    deletedCount,
     requestedBy: req.ip
   });
 
   res.json({
+    success: true,
     message: 'Conversation history cleared',
     session_id: sessionId,
+    deleted_count: deletedCount,
     timestamp: new Date().toISOString()
   });
 }));
@@ -524,6 +528,13 @@ router.get('/stream', asyncHandler(async (req: Request, res: Response) => {
       messageLength: message.length
     });
 
+    // Perform sentiment analysis on the user message
+    const sentimentAnalysis = await sentimentAnalyzer.analyzeSentiment(message.trim());
+    const contextTags = sentimentAnalyzer.generateContextTags(message.trim(), sentimentAnalysis);
+    
+    // Update mood based on sentiment
+    await sentimentAnalyzer.updateMoodFromSentiment(sentimentAnalysis);
+
     // Get conversation context
     const conversationContext = await getConversationContext(sessionId);
     const personalityState = await db.getPersonalityState();
@@ -546,25 +557,26 @@ router.get('/stream', asyncHandler(async (req: Request, res: Response) => {
       useUncensored
     );
 
-    // Save conversation to database
+    // Save conversation to database with sentiment analysis
     conversationId = await saveConversation(
       sessionId,
       message.trim(),
       aiResponse,
-      { score: 0, label: 'neutral' }, // TODO: Get from sentiment analysis
-      [],
+      { score: sentimentAnalysis.score, label: sentimentAnalysis.label },
+      contextTags,
       result.tokens,
       result.responseTime,
       result.model
     );
 
-    // Send final metadata
+    // Send final metadata including sentiment
     const metadata = {
       type: 'metadata',
       conversationId,
       tokens: result.tokens,
       responseTime: result.responseTime,
-      model: result.model
+      model: result.model,
+      sentiment: sentimentAnalysis
     };
     res.write(`data: ${JSON.stringify(metadata)}\n\n`);
 
@@ -576,7 +588,8 @@ router.get('/stream', asyncHandler(async (req: Request, res: Response) => {
       sessionId,
       conversationId,
       responseLength: aiResponse.length,
-      tokens: result.tokens
+      tokens: result.tokens,
+      sentiment: sentimentAnalysis.label
     });
 
   } catch (error) {

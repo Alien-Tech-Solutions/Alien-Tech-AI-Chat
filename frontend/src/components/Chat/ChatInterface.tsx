@@ -1,7 +1,27 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import api from '../../services/api';
-import { Bot, Settings, Plus, StopCircle } from 'lucide-react';
+import { 
+  Bot, 
+  Settings, 
+  Plus, 
+  StopCircle, 
+  Download, 
+  Trash2, 
+  Copy, 
+  MoreVertical,
+  Zap,
+  Brain,
+  Sparkles,
+  MessageSquare,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  Sun,
+  Moon,
+  Maximize2,
+  Minimize2
+} from 'lucide-react';
 import { useAppStore } from '../../store';
 import { Message } from '../../types';
 import Button from '../ui/Button';
@@ -20,6 +40,16 @@ const toast = ({ title, description }: {
   alert(`${title}: ${description}`);
 };
 
+// AI Model options
+const AI_MODELS = [
+  { id: 'ollama-default', name: 'Lacky (Local)', provider: 'ollama', description: 'Fast, private, local AI' },
+  { id: 'ollama-uncensored', name: 'Lacky Uncensored', provider: 'ollama', description: 'Unrestricted local AI' },
+  { id: 'gpt-4', name: 'GPT-4', provider: 'openai', description: 'OpenAI most capable model' },
+  { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', provider: 'openai', description: 'Fast and efficient' },
+  { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', provider: 'anthropic', description: 'Balanced performance' },
+  { id: 'gemini-pro', name: 'Gemini Pro', provider: 'google', description: 'Google AI' },
+];
+
 const ChatInterface: React.FC = () => {
   const location = useLocation();
   const {
@@ -31,6 +61,10 @@ const ChatInterface: React.FC = () => {
     setSidebarOpen,
     updateAssistantMessage,
     loadSessionMessages,
+    settings,
+    updateSettings,
+    theme,
+    setTheme,
   } = useAppStore();
 
   const [inputValue, setInputValue] = useState('');
@@ -38,6 +72,15 @@ const ChatInterface: React.FC = () => {
   const [currentAssistantMessageId, setCurrentAssistantMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Enhanced UI state
+  const [showQuickSettings, setShowQuickSettings] = useState(false);
+  const [selectedModel, setSelectedModel] = useState('ollama-default');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showModelSelector, setShowModelSelector] = useState(false);
+  const [chatTemperature, setChatTemperature] = useState(0.7);
+  const [maxTokens, setMaxTokens] = useState(2048);
 
   // Handle pre-filled message from companion dashboard
   useEffect(() => {
@@ -166,14 +209,88 @@ const ChatInterface: React.FC = () => {
     }
   };
 
+  // Export chat history
+  const handleExportChat = () => {
+    if (messages.length === 0) return;
+    
+    const chatExport = {
+      session: currentSession?.name || 'Chat Export',
+      exportedAt: new Date().toISOString(),
+      messages: messages.map(m => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp
+      }))
+    };
+    
+    const blob = new Blob([JSON.stringify(chatExport, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `chat-export-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Clear current chat
+  const handleClearChat = async () => {
+    if (window.confirm('Are you sure you want to clear this chat? This cannot be undone.')) {
+      // Clear messages from the current session
+      try {
+        if (currentSession?.id) {
+          await api.deleteConversationHistory(currentSession.id);
+        }
+        // Refresh the session to show empty
+        handleNewSession();
+      } catch (err) {
+        console.error('Failed to clear chat', err);
+      }
+    }
+  };
+
+  // Toggle fullscreen
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen();
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen();
+      setIsFullscreen(false);
+    }
+  };
+
+  // Copy last response to clipboard with user feedback
+  const copyLastResponse = () => {
+    const lastAssistantMessage = [...messages].reverse().find(m => m.role === 'assistant');
+    if (lastAssistantMessage) {
+      navigator.clipboard.writeText(lastAssistantMessage.content).then(() => {
+        // Visual feedback - button will show success state briefly
+        const btn = document.querySelector('[title="Copy Last Response"]');
+        if (btn) {
+          btn.classList.add('text-success');
+          setTimeout(() => btn.classList.remove('text-success'), 1500);
+        }
+      });
+    }
+  };
+
+  // Regenerate last response by re-sending the last user message
+  const regenerateResponse = async () => {
+    const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
+    if (lastUserMessage) {
+      setInputValue(lastUserMessage.content);
+      // User can review and send manually, or modify before sending
+    }
+  };
+
   return (
-    <div className="flex h-screen bg-base-100">
+    <div className={`flex h-screen bg-base-100 ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
       {/* Sidebar */}
       <ChatSidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col">
-        {/* Header */}
+        {/* Enhanced Header */}
         <div className="flex items-center justify-between p-4 border-b border-base-300 bg-base-200">
           <div className="flex items-center space-x-3">
             <Button
@@ -182,19 +299,167 @@ const ChatInterface: React.FC = () => {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="lg:hidden"
             >
-              <Settings className="h-5 w-5" />
+              <MessageSquare className="h-5 w-5" />
             </Button>
             <div>
               <h1 className="text-lg font-semibold">
                 {currentSession?.name || 'New Chat'}
               </h1>
               <p className="text-sm text-base-content/60">
-                {messages.length} messages
+                {messages.length} messages • {AI_MODELS.find(m => m.id === selectedModel)?.name || 'Lacky'}
               </p>
             </div>
           </div>
           
           <div className="flex items-center space-x-2">
+            {/* Model Selector */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowModelSelector(!showModelSelector)}
+                className="flex items-center gap-2"
+                title="Select AI Model"
+              >
+                <Brain className="h-4 w-4" />
+                <span className="hidden md:inline text-sm">
+                  {AI_MODELS.find(m => m.id === selectedModel)?.name || 'Model'}
+                </span>
+              </Button>
+              
+              {showModelSelector && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-base-100 rounded-lg shadow-xl border border-base-300 z-50">
+                  <div className="p-2">
+                    <h3 className="text-sm font-semibold px-2 py-1 text-base-content/70">Select AI Model</h3>
+                    {AI_MODELS.map(model => (
+                      <button
+                        key={model.id}
+                        onClick={() => {
+                          setSelectedModel(model.id);
+                          setShowModelSelector(false);
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-base-200 transition-colors ${
+                          selectedModel === model.id ? 'bg-primary/10 text-primary' : ''
+                        }`}
+                      >
+                        <div className="font-medium">{model.name}</div>
+                        <div className="text-xs text-base-content/60">{model.description}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Settings */}
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowQuickSettings(!showQuickSettings)}
+                title="Quick Settings"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+              
+              {showQuickSettings && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-base-100 rounded-lg shadow-xl border border-base-300 z-50 p-4">
+                  <h3 className="text-sm font-semibold mb-3">Quick Settings</h3>
+                  
+                  {/* Temperature Slider */}
+                  <div className="mb-4">
+                    <label className="text-xs text-base-content/70 mb-1 flex justify-between">
+                      <span>Creativity</span>
+                      <span>{chatTemperature.toFixed(1)}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={chatTemperature}
+                      onChange={(e) => setChatTemperature(parseFloat(e.target.value))}
+                      className="range range-primary range-xs w-full"
+                    />
+                    <div className="flex justify-between text-xs text-base-content/50 mt-1">
+                      <span>Precise</span>
+                      <span>Creative</span>
+                    </div>
+                  </div>
+                  
+                  {/* Max Tokens Slider */}
+                  <div className="mb-4">
+                    <label className="text-xs text-base-content/70 mb-1 flex justify-between">
+                      <span>Max Response Length</span>
+                      <span>{maxTokens}</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="256"
+                      max="4096"
+                      step="256"
+                      value={maxTokens}
+                      onChange={(e) => setMaxTokens(parseInt(e.target.value))}
+                      className="range range-primary range-xs w-full"
+                    />
+                  </div>
+                  
+                  {/* Sound Toggle */}
+                  <div className="flex items-center justify-between py-2">
+                    <span className="text-sm">Sound Effects</span>
+                    <button
+                      onClick={() => setSoundEnabled(!soundEnabled)}
+                      className={`btn btn-sm ${soundEnabled ? 'btn-primary' : 'btn-ghost'}`}
+                    >
+                      {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={copyLastResponse}
+              title="Copy Last Response"
+              disabled={messages.length === 0}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={regenerateResponse}
+              title="Regenerate Response"
+              disabled={messages.length === 0}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleExportChat}
+              title="Export Chat"
+              disabled={messages.length === 0}
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            >
+              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
+            
+            <div className="h-6 w-px bg-base-300 mx-1" />
+            
             <Button
               variant="outline"
               size="sm"
@@ -202,6 +467,17 @@ const ChatInterface: React.FC = () => {
             >
               <Plus className="h-4 w-4 mr-2" />
               New Chat
+            </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClearChat}
+              title="Clear Chat"
+              className="text-error hover:bg-error/10"
+              disabled={messages.length === 0}
+            >
+              <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -215,9 +491,29 @@ const ChatInterface: React.FC = () => {
             <div className="flex flex-col items-center justify-center h-full text-center">
               <Bot className="h-16 w-16 text-base-content/40 mb-4" />
               <h2 className="text-xl font-semibold mb-2">Welcome to Lackadaisical AI Chat</h2>
-              <p className="text-base-content/60 max-w-md">
+              <p className="text-base-content/60 max-w-md mb-6">
                 Start a conversation with your AI companion. I'm here to chat, help, and learn with you.
               </p>
+              
+              {/* Quick Start Suggestions */}
+              <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+                {[
+                  "Tell me a joke",
+                  "Help me write code",
+                  "Explain a concept",
+                  "Creative writing",
+                  "Daily check-in"
+                ].map((suggestion, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setInputValue(suggestion)}
+                    className="px-4 py-2 bg-base-200 hover:bg-base-300 rounded-full text-sm transition-colors"
+                  >
+                    <Sparkles className="h-3 w-3 inline mr-2" />
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : (
             messages.map((message) => (
@@ -257,10 +553,28 @@ const ChatInterface: React.FC = () => {
             disabled={isLoading || isStreaming}
             placeholder="Type your message..."
           />
+          <div className="flex items-center justify-between mt-2 text-xs text-base-content/50">
+            <span>Press Enter to send, Shift+Enter for new line</span>
+            <span className="flex items-center gap-2">
+              <Zap className="h-3 w-3" />
+              Powered by {AI_MODELS.find(m => m.id === selectedModel)?.provider || 'Ollama'}
+            </span>
+          </div>
         </div>
       </div>
+      
+      {/* Click outside to close dropdowns */}
+      {(showModelSelector || showQuickSettings) && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => {
+            setShowModelSelector(false);
+            setShowQuickSettings(false);
+          }}
+        />
+      )}
     </div>
   );
 };
 
-export default ChatInterface; 
+export default ChatInterface;

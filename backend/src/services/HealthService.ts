@@ -231,7 +231,7 @@ export class HealthService {
     return {
       status: this.calculateOverallStatus(services),
       timestamp: new Date().toISOString(),
-      version: '1.0.0',
+      version: '2.0.0-alpha',
       uptime,
       services,
       system: this.getSystemMetrics()

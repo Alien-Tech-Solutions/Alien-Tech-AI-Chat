@@ -1,12 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { DatabaseService } from '../services/DatabaseService';
+import { DatabaseService, databaseService } from '../services/DatabaseService';
 import { asyncHandler, createValidationError } from '../middleware/errorHandler';
 import { PersonalityState, MoodState } from '../types';
 import { apiLogger } from '../utils/logger';
 import { config } from '../config/settings';
 
 const router = Router();
-const db = new DatabaseService();  // FIXME: This creates duplicate database instances
+
+// Use the singleton database service instead of creating duplicate instances
+const db = databaseService;
 
 /**
  * GET /personality - Get current personality state
@@ -36,7 +38,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
         total_interactions: 0,
         mood_history: [],
         learning_data: {},
-        personality_version: '1.0.0'
+        personality_version: '2.0.0-alpha'
       };
 
       await db.updatePersonalityState(defaultState);

@@ -18,7 +18,7 @@ interface PoemConfig {
 
 class PoemOfTheDayPlugin implements Plugin {
   name = 'poem-of-the-day';
-  version = '1.0.0';
+  version = '2.0.0-alpha';
   description = 'Get daily poetry with analysis and themes';
   author = 'Lackadaisical Security';
   permissions = ['network'];
