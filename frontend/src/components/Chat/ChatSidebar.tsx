@@ -147,7 +147,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
     }
   };
 
-  const filteredSessions = sessions.filter(session =>
+  const filteredSessions = (sessions || []).filter(session =>
     session.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 

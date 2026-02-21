@@ -516,7 +516,7 @@ export class DatabaseService {
     }
     
     const result = await this.executeQuery<any[]>(query, params);
-    return result.data[0].count;
+    return result.data[0]?.count ?? 0;
   }
 
   async updateJournalEntry(id: string, updates: Partial<JournalEntry>): Promise<void> {
@@ -813,7 +813,12 @@ export class DatabaseService {
     `;
     
     const result = await this.executeQuery<any[]>(query);
-    return result.data[0];
+    return result.data[0] ?? {
+      total_conversations: 0,
+      total_journal_entries: 0,
+      total_sessions: 0,
+      active_plugins: 0,
+    };
   }
 
   async cleanupOldData(daysToKeep: number = 365): Promise<void> {
