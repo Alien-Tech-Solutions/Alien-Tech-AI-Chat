@@ -185,6 +185,42 @@ class WeatherPlugin implements Plugin {
     };
   }
 
+  // Constants for "feels like" temperature calculation
+  // Based on simplified heat index and wind chill effects
+  private readonly WIND_CHILL_THRESHOLD = 10;  // m/s - wind above this reduces feels-like temp
+  private readonly WIND_CHILL_EFFECT = 2;      // °C reduction when windy
+  private readonly HIGH_HUMIDITY_THRESHOLD = 70; // % - humidity above this increases feels-like temp
+  private readonly HUMIDITY_HEAT_EFFECT = 2;   // °C increase when humid
+
+  /**
+   * Helper to calculate a random value within a range using a seed
+   */
+  private randomInRange(seed: number, min: number, max: number): number {
+    return min + (seed % (max - min));
+  }
+
+  /**
+   * Calculate "feels like" temperature based on wind and humidity
+   * Simplified model based on:
+   * - Wind chill: reduces perceived temp when wind > threshold
+   * - Heat index: increases perceived temp when humidity > threshold
+   */
+  private calculateFeelsLike(actualTemp: number, windSpeed: number, humidity: number): number {
+    let feelsLike = actualTemp;
+    
+    // Wind chill effect (more noticeable in cooler temps)
+    if (windSpeed > this.WIND_CHILL_THRESHOLD) {
+      feelsLike -= this.WIND_CHILL_EFFECT;
+    }
+    
+    // Humidity heat effect (more noticeable in warmer temps)
+    if (humidity > this.HIGH_HUMIDITY_THRESHOLD && actualTemp > 20) {
+      feelsLike += this.HUMIDITY_HEAT_EFFECT;
+    }
+    
+    return Math.round(feelsLike);
+  }
+
   /**
    * Generate simulated weather data for demo/testing purposes
    */
@@ -204,10 +240,10 @@ class WeatherPlugin implements Plugin {
     const conditionIndex = dateSeed % weatherConfig.conditions.length;
     const condition = weatherConfig.conditions[conditionIndex];
     
-    // Calculate other values
-    const humidity = weatherConfig.humidity[0] + (dateSeed % (weatherConfig.humidity[1] - weatherConfig.humidity[0]));
-    const windSpeed = weatherConfig.windSpeed[0] + (dateSeed % (weatherConfig.windSpeed[1] - weatherConfig.windSpeed[0]));
-    const feelsLike = Math.round(temperature - (windSpeed > 10 ? 2 : 0) + (humidity > 70 ? 2 : 0));
+    // Calculate other values using helper
+    const humidity = this.randomInRange(dateSeed, weatherConfig.humidity[0], weatherConfig.humidity[1]);
+    const windSpeed = this.randomInRange(dateSeed * 7, weatherConfig.windSpeed[0], weatherConfig.windSpeed[1]);
+    const feelsLike = this.calculateFeelsLike(temperature, windSpeed, humidity);
 
     return {
       location: this.formatLocationName(location),

@@ -134,7 +134,16 @@ export class EnhancedMemoryService {
     maxCrossSessionHistory: 10,      // Include up to 10 past sessions
     crossSessionTokenLimit: 32000,   // 32K token budget for cross-session context
     maxSearchResults: 100,           // More search results
-    longTermMemoryEnabled: true
+    longTermMemoryEnabled: true,
+    // Token allocation ratios for context building
+    currentSessionTokenRatio: 0.75,  // 75% of tokens for current session
+    crossSessionTokenRatio: 0.25,    // 25% of tokens for cross-session context
+    // Token estimation: average chars per token (GPT-style tokenization)
+    charsPerToken: 4,
+    // Relevance scoring thresholds
+    minWordLengthForRelevance: 3,
+    relevanceScorePerMatch: 0.2,
+    minRelevanceThreshold: 0.1
   };
 
   constructor(db: DatabaseService, memoryPath: string = './memory') {
@@ -414,11 +423,16 @@ export class EnhancedMemoryService {
         
         try {
           const tagArrays = allTagsStr.split(',').map((t: string) => {
-            try { return JSON.parse(t); } catch { return []; }
+            try { 
+              return JSON.parse(t); 
+            } catch (innerError) { 
+              logger.debug('Failed to parse individual tag JSON:', { tag: t, error: innerError });
+              return []; 
+            }
           });
           tagArrays.flat().forEach((tag: string) => topics.add(tag));
-        } catch {
-          // Ignore parsing errors
+        } catch (outerError) {
+          logger.debug('Failed to process tags string:', { allTagsStr, error: outerError });
         }
 
         // Get session summary from recent conversations
@@ -503,13 +517,13 @@ export class EnhancedMemoryService {
 
       const queryWords = query.toLowerCase().split(/\s+/);
       const results = result.data.map((row: any) => {
-        // Calculate relevance score
+        // Calculate relevance score using configurable thresholds
         const text = `${row.user_message || ''} ${row.ai_response || ''}`.toLowerCase();
         let relevanceScore = 0;
         
         for (const word of queryWords) {
-          if (word.length > 2 && text.includes(word)) {
-            relevanceScore += 0.2;
+          if (word.length > this.config.minWordLengthForRelevance && text.includes(word)) {
+            relevanceScore += this.config.relevanceScorePerMatch;
           }
         }
         
@@ -521,7 +535,7 @@ export class EnhancedMemoryService {
           relevanceScore: Math.min(1, relevanceScore),
           timestamp: new Date(row.timestamp)
         };
-      }).filter((r: any) => r.relevanceScore >= (options?.minRelevance || 0.1));
+      }).filter((r: any) => r.relevanceScore >= (options?.minRelevance || this.config.minRelevanceThreshold));
 
       return {
         results: results.sort((a: any, b: any) => b.relevanceScore - a.relevanceScore),
@@ -542,12 +556,12 @@ export class EnhancedMemoryService {
     query?: string;
   }): Promise<ContextWindow> {
     try {
-      // Allocate token budget: 75% for current session, 25% for cross-session
+      // Allocate token budget using configurable ratios
       const currentSessionTokens = options?.includeCrossSession 
-        ? Math.floor(maxTokens * 0.75) 
+        ? Math.floor(maxTokens * this.config.currentSessionTokenRatio) 
         : maxTokens;
       const crossSessionTokens = options?.includeCrossSession 
-        ? Math.floor(maxTokens * 0.25) 
+        ? Math.floor(maxTokens * this.config.crossSessionTokenRatio) 
         : 0;
 
       const result = await this.db.executeQuery(`
@@ -569,7 +583,10 @@ export class EnhancedMemoryService {
       // Process in reverse to maintain chronological order
       for (let i = rows.length - 1; i >= 0 && totalTokens < currentSessionTokens; i--) {
         const row = rows[i];
-        const messageTokens = row.tokens_used || Math.ceil(((row.user_message?.length || 0) + (row.ai_response?.length || 0)) / 4);
+        // Use stored tokens or estimate based on character count
+        const messageTokens = row.tokens_used || this.estimateTokens(
+          (row.user_message || '') + (row.ai_response || '')
+        );
         
         if (totalTokens + messageTokens > currentSessionTokens) break;
 
@@ -597,8 +614,8 @@ export class EnhancedMemoryService {
         try {
           const tags = JSON.parse(row.context_tags || '[]');
           tags.forEach((tag: string) => allTopics.add(tag));
-        } catch {
-          // Ignore JSON parse errors
+        } catch (parseError) {
+          logger.debug('Failed to parse context tags JSON:', { error: parseError, sessionId, rowId: row.id });
         }
 
         totalTokens += messageTokens;
@@ -628,7 +645,11 @@ export class EnhancedMemoryService {
           options.maxCrossSessionHistory || this.config.maxCrossSessionHistory,
           options.query
         );
-        totalTokens += crossSessionContext.totalCrossSessionMessages * 50; // Approximate token estimate
+        // Estimate tokens for cross-session context using proper calculation
+        const crossSessionTokenEstimate = crossSessionContext.sessionSummaries.reduce((sum, s) => {
+          return sum + this.estimateTokens(s.summary);
+        }, 0);
+        totalTokens += crossSessionTokenEstimate;
       }
 
       return {
@@ -651,6 +672,13 @@ export class EnhancedMemoryService {
         totalTokens: 0
       };
     }
+  }
+
+  /**
+   * Estimate token count from text using configurable chars-per-token ratio
+   */
+  private estimateTokens(text: string): number {
+    return Math.ceil(text.length / this.config.charsPerToken);
   }
 
   /**
