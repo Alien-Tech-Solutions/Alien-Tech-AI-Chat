@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { DatabaseService } from '../services/DatabaseService';
 import AIService from '../services/AIService';
+import { ConversationManager } from '../services/ConversationManager';
+import { ResourceOptimizer } from '../services/ResourceOptimizer';
 import { sentimentMiddleware, createSentimentMiddleware } from '../middleware/sentiment';
 import { asyncHandler, createValidationError, createNotFoundError } from '../middleware/errorHandler';
 import { endpointRateLimiter } from '../middleware/rateLimiter';
@@ -12,6 +14,10 @@ import { v4 as uuidv4 } from 'uuid';
 // Export a function that creates the router with dependencies
 export default function createChatRoutes(db: DatabaseService, aiService: AIService): Router {
   const router = Router();
+
+  // Initialize ConversationManager for full context tracking
+  const conversationManager = new ConversationManager(db);
+  const resourceOptimizer = ResourceOptimizer.getInstance();
 
   // Apply rate limiting to chat endpoints
   router.use(endpointRateLimiter('chat'));
@@ -135,7 +141,7 @@ async function generateAIResponse(
 }
 
 /**
- * Save conversation to database
+ * Save conversation to database with full context tracking
  */
 async function saveConversation(
   sessionId: string,
@@ -145,8 +151,23 @@ async function saveConversation(
   contextTags: string[],
   tokensUsed: number,
   responseTime: number,
-  model: string
+  model: string,
+  provider: string = 'ollama'
 ): Promise<number> {
+  // Record turn in ConversationManager for full context tracking
+  if (userMessage && aiResponse) {
+    await conversationManager.recordTurn(sessionId, userMessage, aiResponse, {
+      sentimentScore: sentimentData?.score || 0,
+      sentimentLabel: sentimentData?.label || 'neutral',
+      tokensUsed,
+      responseTimeMs: responseTime,
+      modelUsed: model || 'unknown',
+      provider,
+      contextTags
+    });
+  }
+
+  // Also save to database directly for immediate persistence
   return await db.insertConversation({
     session_id: sessionId,
     user_message: userMessage,
@@ -223,7 +244,7 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
 
         responseMetadata = result;
 
-        // Save conversation to database
+        // Save conversation to database with full context tracking
         const conversationId = await saveConversation(
           chatRequest.session_id || 'default',
           chatRequest.message,
@@ -232,7 +253,8 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
           contextTags,
           result.tokens,
           result.responseTime,
-          result.model
+          result.model,
+          result.provider
         );
 
         // Send end chunk to signal completion
@@ -284,7 +306,7 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
         chatRequest.useUncensored
       );
 
-      // Save conversation to database
+      // Save conversation to database with full context tracking
       const conversationId = await saveConversation(
         chatRequest.session_id!,
         chatRequest.message,
@@ -293,7 +315,8 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
         contextTags,
         result.tokens,
         result.responseTime,
-        result.model
+        result.model,
+        result.provider
       );
 
       const totalTime = Date.now() - startTime;
@@ -608,5 +631,100 @@ router.get('/stats', asyncHandler(async (req: Request, res: Response) => {
 });
 }));
 
+/**
+ * GET /chat/context/:sessionId - Get full context window for a session
+ */
+router.get('/context/:sessionId', asyncHandler(async (req: Request, res: Response) => {
+  const sessionId = req.params.sessionId;
+  const maxTokens = parseInt(req.query.maxTokens as string) || undefined;
+
+  const contextWindow = await conversationManager.getConversationContext(sessionId, maxTokens);
+
+  res.json({
+    success: true,
+    data: {
+      sessionId,
+      context: contextWindow,
+      timestamp: new Date().toISOString()
+    }
+  });
+}));
+
+/**
+ * GET /chat/analytics/:sessionId - Get detailed session analytics
+ */
+router.get('/analytics/:sessionId', asyncHandler(async (req: Request, res: Response) => {
+  const sessionId = req.params.sessionId;
+
+  const analytics = await conversationManager.getSessionAnalytics(sessionId);
+
+  res.json({
+    success: true,
+    data: analytics,
+    timestamp: new Date().toISOString()
+  });
+}));
+
+/**
+ * GET /chat/analytics - Get global analytics across all sessions
+ */
+router.get('/global-analytics', asyncHandler(async (req: Request, res: Response) => {
+  const days = parseInt(req.query.days as string) || 30;
+
+  const analytics = await conversationManager.getGlobalAnalytics(days);
+
+  res.json({
+    success: true,
+    data: analytics,
+    timestamp: new Date().toISOString()
+  });
+}));
+
+/**
+ * GET /chat/sessions/active - Get all active sessions
+ */
+router.get('/sessions/active', asyncHandler(async (req: Request, res: Response) => {
+  const sessions = conversationManager.getActiveSessions();
+
+  res.json({
+    success: true,
+    data: {
+      sessions,
+      count: sessions.length
+    },
+    timestamp: new Date().toISOString()
+  });
+}));
+
+/**
+ * GET /chat/resources - Get resource optimization status
+ */
+router.get('/resources', asyncHandler(async (req: Request, res: Response) => {
+  const resourceStatus = conversationManager.getResourceStatus();
+  const recommendations = resourceOptimizer.getOptimizationRecommendations();
+
+  res.json({
+    success: true,
+    data: {
+      ...resourceStatus,
+      recommendations
+    },
+    timestamp: new Date().toISOString()
+  });
+}));
+
+/**
+ * POST /chat/flush - Force flush all pending data
+ */
+router.post('/flush', asyncHandler(async (req: Request, res: Response) => {
+  await conversationManager.forceFlush();
+
+  res.json({
+    success: true,
+    message: 'All pending data has been flushed',
+    timestamp: new Date().toISOString()
+  });
+}));
+
 return router;
-} 
+}
