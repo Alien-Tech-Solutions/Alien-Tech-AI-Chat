@@ -1,0 +1,41 @@
+# Personal data - never commit
+*.db
+!schema.sql
+backend/memory/*.json
+!backend/memory/.gitkeep
+logs/*.log
+backend/logs/*.log
+.env
+backend/.env
+frontend/.env
+
+# Development
+node_modules/
+.vite/
+dist/
+build/
+.cache/
+*.tsbuildinfo
+
+# IDE
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Windows executables from zip
+*.exe
