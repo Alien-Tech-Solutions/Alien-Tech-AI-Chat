@@ -18,10 +18,12 @@ import {
   EyeOff,
   RefreshCw,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Brain,
+  History
 } from 'lucide-react';
 import { useAppStore } from '../../store';
-import { UserSettings } from '../../types';
+import { UserSettings, UserMemoryPreferences } from '../../types';
 import Button from '../ui/Button';
 import ThemeSwitcher from '../ui/ThemeSwitcher';
 import { useTheme } from '../ui/ThemeProvider';
@@ -31,10 +33,23 @@ const SettingsInterface: React.FC = () => {
   const {
     settings,
     updateSettings,
+    memoryPreferences,
+    crossSessionEnabled,
+    fetchMemoryPreferences,
+    updateMemoryPreferences,
+    toggleCrossSession,
   } = useAppStore();
 
-  const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'ai' | 'privacy' | 'advanced'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'ai' | 'memory' | 'privacy' | 'advanced'>('general');
   const [localSettings, setLocalSettings] = useState<UserSettings>(settings);
+  const [localMemoryPrefs, setLocalMemoryPrefs] = useState<Partial<UserMemoryPreferences>>({
+    crossSessionEnabled: crossSessionEnabled,
+    maxCrossSessionHistory: memoryPreferences?.maxCrossSessionHistory || 10,
+    contextTokenLimit: memoryPreferences?.contextTokenLimit || 128000,
+    maxContextMessages: memoryPreferences?.maxContextMessages || 1000,
+    autoSummarize: memoryPreferences?.autoSummarize ?? true,
+    privacyLevel: memoryPreferences?.privacyLevel || 'normal',
+  });
   const [hasChanges, setHasChanges] = useState(false);
   const [showApiKeys, setShowApiKeys] = useState(false);
   const [apiKeys, setApiKeys] = useState({
@@ -50,7 +65,22 @@ const SettingsInterface: React.FC = () => {
   useEffect(() => {
     loadSettings();
     loadApiKeys();
+    fetchMemoryPreferences();
   }, []);
+
+  // Update local memory preferences when store changes
+  useEffect(() => {
+    if (memoryPreferences) {
+      setLocalMemoryPrefs({
+        crossSessionEnabled: memoryPreferences.crossSessionEnabled,
+        maxCrossSessionHistory: memoryPreferences.maxCrossSessionHistory,
+        contextTokenLimit: memoryPreferences.contextTokenLimit,
+        maxContextMessages: memoryPreferences.maxContextMessages,
+        autoSummarize: memoryPreferences.autoSummarize,
+        privacyLevel: memoryPreferences.privacyLevel,
+      });
+    }
+  }, [memoryPreferences]);
 
   // Check for changes
   useEffect(() => {
@@ -95,6 +125,9 @@ const SettingsInterface: React.FC = () => {
       
       // Save API keys
       localStorage.setItem('api-keys', JSON.stringify(apiKeys));
+      
+      // Save memory preferences
+      await updateMemoryPreferences(localMemoryPrefs);
       
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -164,6 +197,7 @@ const SettingsInterface: React.FC = () => {
     { id: 'general', label: 'General', icon: Settings },
     { id: 'appearance', label: 'Appearance', icon: Palette },
     { id: 'ai', label: 'AI Settings', icon: Zap },
+    { id: 'memory', label: 'Memory', icon: Brain },
     { id: 'privacy', label: 'Privacy', icon: Shield },
     { id: 'advanced', label: 'Advanced', icon: Database },
   ] as const;
@@ -441,6 +475,149 @@ const SettingsInterface: React.FC = () => {
                           Your API keys are stored locally and never sent to our servers. 
                           Keep them secure and never share them publicly.
                         </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Memory Settings */}
+            {activeTab === 'memory' && (
+              <div className="space-y-6">
+                <h2 className="text-xl font-semibold">Memory & Context</h2>
+                
+                <div className="p-4 bg-info/10 border border-info/20 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <Brain className="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium text-info">Enhanced Memory System</h4>
+                      <p className="text-sm text-base-content/70 mt-1">
+                        Control how the AI remembers and uses context from your conversations. 
+                        Cross-session memory allows the AI to reference past conversations for better continuity.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Cross-Session Memory Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-base-200 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <History className="w-5 h-5 text-primary" />
+                      <div>
+                        <h3 className="font-medium">Cross-Session Memory</h3>
+                        <p className="text-sm text-base-content/60">
+                          Allow AI to access context from previous sessions
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={localMemoryPrefs.crossSessionEnabled}
+                        onChange={(e) => setLocalMemoryPrefs(prev => ({ ...prev, crossSessionEnabled: e.target.checked }))}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-base-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+
+                  {/* Auto-Summarize Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-base-200 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <Zap className="w-5 h-5 text-primary" />
+                      <div>
+                        <h3 className="font-medium">Auto-Summarize</h3>
+                        <p className="text-sm text-base-content/60">
+                          Automatically create conversation summaries for faster context loading
+                        </p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={localMemoryPrefs.autoSummarize}
+                        onChange={(e) => setLocalMemoryPrefs(prev => ({ ...prev, autoSummarize: e.target.checked }))}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-base-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+
+                  {/* Max Cross-Session History */}
+                  <div className="p-4 bg-base-200 rounded-lg">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <Database className="w-5 h-5 text-primary" />
+                      <div>
+                        <h3 className="font-medium">Cross-Session History Limit</h3>
+                        <p className="text-sm text-base-content/60">
+                          Maximum number of past sessions to include in context
+                        </p>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="20"
+                      value={localMemoryPrefs.maxCrossSessionHistory || 10}
+                      onChange={(e) => setLocalMemoryPrefs(prev => ({ ...prev, maxCrossSessionHistory: parseInt(e.target.value) }))}
+                      className="range range-primary w-full"
+                    />
+                    <div className="flex justify-between text-xs text-base-content/60 mt-2">
+                      <span>1 session</span>
+                      <span className="font-medium text-primary">{localMemoryPrefs.maxCrossSessionHistory || 10} sessions</span>
+                      <span>20 sessions</span>
+                    </div>
+                  </div>
+
+                  {/* Privacy Level */}
+                  <div className="p-4 bg-base-200 rounded-lg">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <Shield className="w-5 h-5 text-primary" />
+                      <div>
+                        <h3 className="font-medium">Memory Privacy Level</h3>
+                        <p className="text-sm text-base-content/60">
+                          Control how detailed the memory context is
+                        </p>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {[
+                        { value: 'strict', label: 'Strict', description: 'Minimal context, no personal details' },
+                        { value: 'normal', label: 'Normal', description: 'Balanced context for natural conversations' },
+                        { value: 'relaxed', label: 'Relaxed', description: 'Full context for best personalization' },
+                      ].map((level) => (
+                        <label key={level.value} className="flex items-center space-x-3 cursor-pointer p-2 hover:bg-base-300 rounded">
+                          <input
+                            type="radio"
+                            name="privacyLevel"
+                            value={level.value}
+                            checked={localMemoryPrefs.privacyLevel === level.value}
+                            onChange={(e) => setLocalMemoryPrefs(prev => ({ ...prev, privacyLevel: e.target.value as 'strict' | 'normal' | 'relaxed' }))}
+                            className="radio radio-primary"
+                          />
+                          <div>
+                            <span className="font-medium">{level.label}</span>
+                            <p className="text-xs text-base-content/60">{level.description}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Memory Stats Info */}
+                  <div className="p-4 bg-success/10 border border-success/20 rounded-lg">
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-success">Memory Capabilities</h4>
+                        <ul className="text-sm text-base-content/70 mt-1 space-y-1">
+                          <li>• Up to 1,000 messages per session</li>
+                          <li>• 128K token context window</li>
+                          <li>• 32K token cross-session budget</li>
+                          <li>• Smart topic extraction and summaries</li>
+                        </ul>
                       </div>
                     </div>
                   </div>
