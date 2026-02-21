@@ -1,161 +1,113 @@
-# 📋 Changelog
+# Changelog
 
-All notable changes to Lackadaisical AI Chat. We actually update this thing.
+All notable changes to Lackadaisical AI Chat will be documented in this file.
 
----
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - February 2026 🔥
+## [2.0.0-alpha] - 2026-02-21
 
-### tl;dr
-Major upgrade. Hot-swap models, web search, emotional intelligence that doesn't suck, and docs you might actually read.
+### 🚀 Major New Features
 
-### 🆕 Added
+#### Hot-Swappable AI Models
+- **ModelManager service** - Switch between AI providers on the fly without restarting
+- Support for 15+ models across 5 providers (Ollama, OpenAI, Anthropic, Google, xAI)
+- Automatic model fallback on failure
+- Health monitoring every 30 seconds
+- Model performance metrics tracking
 
-#### Hot-Swappable Model Management
-- **ModelManager service** - Switch AI models without restarting
-- **15+ pre-configured models** across 5 providers
-- **Automatic fallback** - If one model fails, we try another
-- **Health monitoring** - 30-second health checks
-- **Model metrics** - Track performance, latency, success rates
+#### Web Fetching Capability
+- **WebFetcher service** - Real-time web search and information retrieval
+- Multiple search providers (DuckDuckGo, Brave, SerpAPI)
+- URL content extraction with metadata parsing
+- Structured data extraction (JSON-LD, OpenGraph, Twitter Cards)
+- Weather and time lookup utilities
 
-#### Ollama Cloud Integration
-- **Multi-endpoint support** - Local + cloud Ollama instances
-- **Load balancing** - Distribute load across endpoints
-- **Pull models via API** - `POST /api/models/ollama/pull`
-- **Endpoint health tracking** - Know what's up and what's down
-
-#### Web Fetching
-- **WebFetcher service** - Real-time web search
-- **Multiple providers** - DuckDuckGo (free), Brave, SerpAPI
-- **Content extraction** - Pull content from URLs
-- **Metadata parsing** - JSON-LD, OpenGraph, Twitter Cards
-- **Weather & time lookups** - Built-in utilities
+#### Emotional Intelligence (Unrestricted)
+- **EmotionalIntelligence service** - Genuine human connection
+- Full emotional spectrum support - all emotions welcomed
+- Personal insight learning over time
+- Emotional memory for significant moments
+- Trust building through authentic interaction
 
 #### Smart Assistant
-- **Topic analysis** - Understands what you're talking about
-- **Follow-up suggestions** - Contextual next questions
-- **User preference detection** - Learns how you like to communicate
-- **Conversation insights** - Patterns and analytics
+- **SmartAssistant service** - AI-powered conversation enhancement
+- Topic analysis and exploration suggestions
+- Follow-up question generation
+- Resource recommendations
+- User preference detection
 
-#### Emotional Intelligence (The Good Kind)
-- **Full emotional spectrum** - ALL emotions valid, no minimizing
-- **Personal learning** - Remembers your triggers, joys, struggles
-- **Emotional memory** - Stores significant moments
-- **Genuine support** - No corporate BS responses
-- **Trust building** - Deepens connection over time
+### 🧠 Enhanced Memory System
+- Increased max conversation messages to **1000** (was 50)
+- Increased max context tokens to **128K** (was 8K)
+- Context summary threshold: **200 messages**
+- Cross-session token budget: **32K**
+- Cross-session memory access - AI can reference past sessions
+- User preferences for toggling cross-session access
 
-#### New API Endpoints
-```
-GET  /api/models              - List all models
-POST /api/models/switch       - Hot-swap model
-GET  /api/models/current      - Current active model
-GET  /api/models/ollama/endpoints - List Ollama endpoints
-POST /api/models/ollama/endpoints - Add endpoint
-POST /api/models/ollama/pull  - Pull model to endpoint
-POST /api/models/select-best  - Auto-select best model
-```
+### 🔌 Plugin Enhancements
+- Weather plugin with fallback simulated data (works without API key)
+- Seasonal temperature variation with realistic patterns
+- Major city coverage for offline demos
 
-### 🔧 Changed
+### 🔒 Security Improvements
+- Rate limiting on all API endpoints
+- JWT-based authentication with refresh tokens
+- bcrypt password hashing (12 rounds)
+- HTTPS for external API calls
+- Enhanced URL validation (filters dangerous schemes)
 
-#### System Prompt Overhaul
-- Lacky is now a **genuine friend**, not a corporate assistant
-- No more "I cannot help with that" for normal stuff
-- Emotional support that actually supports
-- Remembers you're a person, not a ticket number
+### 📖 Documentation
+- Updated README, CHANGELOG, CODE_OF_CONDUCT, CONTRIBUTING
+- Added comprehensive API documentation
 
-#### Documentation
-- **CODE_OF_CONDUCT.md** - Real talk, not HR speak
-- **CONTRIBUTING.md** - Actually readable dev guide
-- **README.md** - Straight to the point
-
-### 🐛 Fixed
-- HTTP → HTTPS for worldtimeapi calls
-- Better URL validation (filters dangerous schemes)
-- TypeScript compilation issues in new services
-
-### 🔒 Security
-- Enhanced URL filtering (javascript:, data:, vbscript:, file:)
-- Secure API endpoints for model management
-- No sensitive data in logs
+### 🐛 Bug Fixes
+- Fixed TypeScript compilation errors
+- Fixed module resolution issues
+- Updated dependencies for Node.js 24 compatibility
 
 ---
 
-## [1.0.0] - July 2025 🚀
+## [1.0.0-alpha.2] - 2025-07-31
 
-### Initial Release
+### Added
+- Memory Management System
+- Memory Dashboard with visual overview
+- Full-text search across conversation history
+- AI Summarization framework
+- Export/Import for conversation backup
+- Memory Visualization with interactive charts
+- Real-time statistics and health monitoring
 
-The OG drop. Everything that makes Lacky, Lacky.
-
-#### Core Features
-- **AI Companion** with persistent memory
-- **5 AI providers** - Ollama, OpenAI, Anthropic, Google, xAI
-- **Local-first** - Your data stays yours
-- **SQLite database** - Everything stored locally
-- **Session management** - Multiple conversation threads
-
-#### Memory System
-- **1000 message limit** - Generous context
-- **128K token window** - Massive for most models
-- **Cross-session recall** - Reference past conversations
-- **Memory search** - Find anything you discussed
-
-#### Authentication
-- **JWT tokens** - Access + refresh
-- **Rate limiting** - 5 attempts per 15 min
-- **bcrypt hashing** - 12 rounds
-
-#### Plugins
-- **Weather** - Current conditions + forecasts
-- **Horoscope** - Daily zodiac stuff
-- **Poem of the Day** - Because why not
-
-#### Interface
-- **React 18 + Vite** - Fast and modern
-- **Tailwind + DaisyUI** - Clean styling
-- **Real-time streaming** - Watch responses generate
-- **Mobile responsive** - Works everywhere
+### Enhanced
+- Conversation History with full search and recall
+- Personal Context memory for interests and goals
+- Mood Tracking and emotional awareness
+- Learning Adaptation based on preferences
 
 ---
 
-## Philosophy
+## [1.0.0-alpha.1] - 2025-07-24
 
-We believe AI companions should be:
-
-1. **Free** - Not $20/month for basic features
-2. **Private** - Your data, your device
-3. **Uncensored** - Reasonable freedom, not anarchy
-4. **Human** - Genuine connection over corporate polish
-5. **Open** - See the code, change the code
-
----
-
-## Upgrade Notes
-
-### From 1.x to 2.0
-
-```bash
-# Pull latest
-git pull
-
-# Reinstall deps (new packages added)
-cd backend && npm install && cd ..
-
-# Run it
-npm run dev
-```
-
-New tables auto-migrate. Your data is safe.
+### Initial Alpha Release
+- Basic AI chat functionality with Ollama integration
+- Session management
+- SQLite database storage
+- React frontend with real-time streaming
+- Plugin ecosystem framework
+- Weather, Horoscope, and Poem plugins
+- Theme support (dark/light modes)
 
 ---
 
-## Coming Soon
+## Version History Summary
 
-- [ ] Voice chat (talk to your AI homie)
-- [ ] Mobile app (iOS/Android)
-- [ ] Plugin marketplace
-- [ ] Image generation integration
-- [ ] Multi-user support
+| Version | Date | Highlights |
+|---------|------|------------|
+| 2.0.0-alpha | 2026-02-21 | Hot-swap models, web fetching, emotional intelligence |
+| 1.0.0-alpha.2 | 2025-07-31 | Memory management system |
+| 1.0.0-alpha.1 | 2025-07-24 | Initial alpha release |
 
 ---
 
-*"Every commit brings us closer to AI that actually respects you."*
+*For security-related changes, see [SECURITY.md](SECURITY.md)*
