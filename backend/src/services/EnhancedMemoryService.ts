@@ -55,18 +55,55 @@ export interface ContextWindow {
     content: string;
     timestamp: Date;
     sentiment?: number;
+    sessionId?: string;
   }>;
   summary: string;
   topics: string[];
   emotionalTrend: string;
   conversationDepth: number;
   totalTokens: number;
+  crossSessionContext?: CrossSessionContext;
+}
+
+export interface CrossSessionContext {
+  includedSessions: string[];
+  sessionSummaries: Array<{
+    sessionId: string;
+    sessionName: string;
+    messageCount: number;
+    topics: string[];
+    lastActive: Date;
+    summary: string;
+  }>;
+  totalCrossSessionMessages: number;
 }
 
 export interface MemorySearchResult {
   entries: ConversationEntry[];
   totalFound: number;
   relevanceScores: number[];
+}
+
+export interface UserPreferences {
+  userId: string;
+  crossSessionEnabled: boolean;
+  maxCrossSessionHistory: number;
+  contextTokenLimit: number;
+  maxContextMessages: number;
+  autoSummarize: boolean;
+  privacyLevel: 'strict' | 'normal' | 'relaxed';
+  summaryThreshold: number;
+}
+
+export interface SessionSummary {
+  sessionId: string;
+  sessionName: string;
+  messageCount: number;
+  topics: string[];
+  themes: string[];
+  emotionalTrend: string;
+  lastActive: Date;
+  summary: string;
 }
 
 export class EnhancedMemoryService {
@@ -77,17 +114,27 @@ export class EnhancedMemoryService {
   // In-memory caches for fast access
   private activeContexts: Map<string, ContextWindow> = new Map();
   private contextCache: Map<string, ConversationEntry[]> = new Map();
-  private cacheMaxAge = 5 * 60 * 1000; // 5 minutes
+  private cacheMaxAge = 10 * 60 * 1000; // 10 minutes - increased for larger contexts
   private cacheTimestamps: Map<string, number> = new Map();
   
-  // Configuration
+  // User preferences cache
+  private userPreferences: Map<string, UserPreferences> = new Map();
+  
+  // Configuration with generous limits - let the AI gallop!
   private config = {
-    maxContextMessages: 50,
-    maxContextTokens: 8000,
-    contextSummaryThreshold: 20,
+    maxContextMessages: 1000,        // Increased to 1000 messages for full conversation history
+    maxContextTokens: 128000,        // 128K tokens - generous limit for modern models
+    contextSummaryThreshold: 200,    // Start summarizing after 200 messages (range 100-500)
+    contextSummaryMinMessages: 100,  // Minimum messages before any summarization
+    contextSummaryMaxMessages: 500,  // Cap summary generation at 500 messages
     batchWriteEnabled: true,
     cacheEnabled: true,
-    autoSummarize: true
+    autoSummarize: true,
+    crossSessionDefaultEnabled: true,
+    maxCrossSessionHistory: 10,      // Include up to 10 past sessions
+    crossSessionTokenLimit: 32000,   // 32K token budget for cross-session context
+    maxSearchResults: 100,           // More search results
+    longTermMemoryEnabled: true
   };
 
   constructor(db: DatabaseService, memoryPath: string = './memory') {
@@ -99,7 +146,7 @@ export class EnhancedMemoryService {
     this.resourceOptimizer.setBatchCallback(this.processBatchWrites.bind(this));
     
     this.initializeMemoryStorage();
-    logger.info('EnhancedMemoryService initialized');
+    logger.info('EnhancedMemoryService initialized with generous context limits (1000 msgs, 128K tokens)');
   }
 
   /**
@@ -231,13 +278,90 @@ export class EnhancedMemoryService {
   }
 
   /**
-   * Get context window for AI prompts
+   * Get or set user preferences for cross-session memory
    */
-  async getContextWindow(sessionId: string, maxTokens?: number): Promise<ContextWindow> {
+  async getUserPreferences(userId: string = 'default'): Promise<UserPreferences> {
+    // Check cache
+    if (this.userPreferences.has(userId)) {
+      return this.userPreferences.get(userId)!;
+    }
+
+    // Try to load from database
+    try {
+      const result = await this.db.executeQuery(
+        `SELECT value_data FROM learning_data WHERE user_id = ? AND data_type = 'preference' AND key_name = 'memory_settings'`,
+        [userId]
+      );
+
+      if (result.data && result.data.length > 0) {
+        const prefs = JSON.parse(result.data[0].value_data);
+        this.userPreferences.set(userId, prefs);
+        return prefs;
+      }
+    } catch (error) {
+      logger.debug('No stored preferences found, using generous defaults');
+    }
+
+    // Return generous default preferences - let the AI gallop!
+    const defaultPrefs: UserPreferences = {
+      userId,
+      crossSessionEnabled: this.config.crossSessionDefaultEnabled,
+      maxCrossSessionHistory: this.config.maxCrossSessionHistory,
+      contextTokenLimit: this.config.maxContextTokens,           // 128K tokens
+      maxContextMessages: this.config.maxContextMessages,        // 1000 messages
+      autoSummarize: this.config.autoSummarize,
+      privacyLevel: 'normal',
+      summaryThreshold: this.config.contextSummaryThreshold      // 200 messages
+    };
+
+    this.userPreferences.set(userId, defaultPrefs);
+    return defaultPrefs;
+  }
+
+  /**
+   * Update user preferences for cross-session memory
+   */
+  async setUserPreferences(userId: string, preferences: Partial<UserPreferences>): Promise<UserPreferences> {
+    const current = await this.getUserPreferences(userId);
+    const updated = { ...current, ...preferences, userId };
+    
+    // Save to database
+    try {
+      await this.db.executeStatement(`
+        INSERT OR REPLACE INTO learning_data (user_id, data_type, key_name, value_data, confidence_score, source)
+        VALUES (?, 'preference', 'memory_settings', ?, 1.0, 'user_explicit')
+      `, [userId, JSON.stringify(updated)]);
+    } catch (error) {
+      logger.error('Failed to save user preferences:', error);
+    }
+
+    // Update cache
+    this.userPreferences.set(userId, updated);
+    
+    logger.info(`Updated user preferences for ${userId}:`, { 
+      crossSessionEnabled: updated.crossSessionEnabled,
+      maxContextMessages: updated.maxContextMessages,
+      contextTokenLimit: updated.contextTokenLimit
+    });
+    return updated;
+  }
+
+  /**
+   * Get context window for AI prompts with cross-session support
+   */
+  async getContextWindow(sessionId: string, maxTokens?: number, options?: {
+    includeCrossSession?: boolean;
+    userId?: string;
+    query?: string;
+  }): Promise<ContextWindow> {
+    const userId = options?.userId || 'default';
+    const prefs = await this.getUserPreferences(userId);
+    
     // Check cache first
-    if (this.config.cacheEnabled && this.activeContexts.has(sessionId)) {
-      const cached = this.activeContexts.get(sessionId)!;
-      const cacheTime = this.cacheTimestamps.get(`context_${sessionId}`);
+    const cacheKey = `${sessionId}_${options?.includeCrossSession ?? prefs.crossSessionEnabled}`;
+    if (this.config.cacheEnabled && this.activeContexts.has(cacheKey)) {
+      const cached = this.activeContexts.get(cacheKey)!;
+      const cacheTime = this.cacheTimestamps.get(`context_${cacheKey}`);
       
       if (cacheTime && Date.now() - cacheTime < this.cacheMaxAge) {
         return cached;
@@ -245,21 +369,187 @@ export class EnhancedMemoryService {
     }
 
     // Build context from database
-    const tokenLimit = maxTokens || this.config.maxContextTokens;
-    const context = await this.buildContextWindow(sessionId, tokenLimit);
+    const tokenLimit = maxTokens || prefs.contextTokenLimit;
+    const includeCrossSession = options?.includeCrossSession ?? prefs.crossSessionEnabled;
+    
+    const context = await this.buildContextWindow(sessionId, tokenLimit, {
+      includeCrossSession,
+      maxCrossSessionHistory: prefs.maxCrossSessionHistory,
+      query: options?.query
+    });
     
     // Cache the result
-    this.activeContexts.set(sessionId, context);
-    this.cacheTimestamps.set(`context_${sessionId}`, Date.now());
+    this.activeContexts.set(cacheKey, context);
+    this.cacheTimestamps.set(`context_${cacheKey}`, Date.now());
     
     return context;
   }
 
   /**
-   * Build context window from database
+   * Get all sessions with their summaries for cross-session reference
    */
-  private async buildContextWindow(sessionId: string, maxTokens: number): Promise<ContextWindow> {
+  async getSessionSummaries(excludeSessionId?: string, limit: number = 10): Promise<SessionSummary[]> {
     try {
+      const result = await this.db.executeQuery(`
+        SELECT 
+          s.id as session_id,
+          s.name as session_name,
+          s.message_count,
+          s.last_activity,
+          GROUP_CONCAT(DISTINCT c.context_tags) as all_tags
+        FROM sessions s
+        LEFT JOIN conversations c ON s.id = c.session_id
+        WHERE s.status = 'active' ${excludeSessionId ? 'AND s.id != ?' : ''}
+        GROUP BY s.id
+        ORDER BY s.last_activity DESC
+        LIMIT ?
+      `, excludeSessionId ? [excludeSessionId, limit] : [limit]);
+
+      const summaries: SessionSummary[] = [];
+      
+      for (const row of result.data) {
+        // Extract topics from concatenated tags
+        const allTagsStr = row.all_tags || '[]';
+        const topics = new Set<string>();
+        
+        try {
+          const tagArrays = allTagsStr.split(',').map((t: string) => {
+            try { return JSON.parse(t); } catch { return []; }
+          });
+          tagArrays.flat().forEach((tag: string) => topics.add(tag));
+        } catch {
+          // Ignore parsing errors
+        }
+
+        // Get session summary from recent conversations
+        const convResult = await this.db.executeQuery(`
+          SELECT user_message, ai_response, sentiment_score
+          FROM conversations
+          WHERE session_id = ?
+          ORDER BY timestamp DESC
+          LIMIT 5
+        `, [row.session_id]);
+
+        const recentMsgs = convResult.data.map((c: any) => ({
+          role: 'user' as const,
+          content: c.user_message,
+          timestamp: new Date()
+        }));
+
+        const summary = await this.generateContextSummary(recentMsgs);
+        
+        // Calculate emotional trend
+        const sentiments = convResult.data.map((c: any) => c.sentiment_score || 0);
+        const avgSentiment = sentiments.reduce((a: number, b: number) => a + b, 0) / Math.max(1, sentiments.length);
+        const emotionalTrend = avgSentiment > 0.5 ? 'positive' : avgSentiment < -0.5 ? 'negative' : 'neutral';
+
+        summaries.push({
+          sessionId: row.session_id,
+          sessionName: row.session_name || `Session ${row.session_id.slice(0, 8)}`,
+          messageCount: row.message_count || 0,
+          topics: Array.from(topics).slice(0, 10),
+          themes: [],
+          emotionalTrend,
+          lastActive: new Date(row.last_activity || Date.now()),
+          summary
+        });
+      }
+
+      return summaries;
+    } catch (error) {
+      logger.error('Failed to get session summaries:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Search across all sessions for relevant context
+   */
+  async searchAllSessions(query: string, options?: {
+    excludeSessionId?: string;
+    limit?: number;
+    minRelevance?: number;
+  }): Promise<{
+    results: Array<{
+      sessionId: string;
+      sessionName: string;
+      userMessage: string;
+      aiResponse: string;
+      relevanceScore: number;
+      timestamp: Date;
+    }>;
+    totalFound: number;
+  }> {
+    try {
+      const limit = options?.limit || 20;
+      const result = await this.db.executeQuery(`
+        SELECT 
+          c.session_id,
+          s.name as session_name,
+          c.user_message,
+          c.ai_response,
+          c.timestamp,
+          c.context_tags
+        FROM conversations c
+        LEFT JOIN sessions s ON c.session_id = s.id
+        WHERE (c.user_message LIKE ? OR c.ai_response LIKE ? OR c.context_tags LIKE ?)
+        ${options?.excludeSessionId ? 'AND c.session_id != ?' : ''}
+        ORDER BY c.timestamp DESC
+        LIMIT ?
+      `, options?.excludeSessionId 
+        ? [`%${query}%`, `%${query}%`, `%${query}%`, options.excludeSessionId, limit]
+        : [`%${query}%`, `%${query}%`, `%${query}%`, limit]
+      );
+
+      const queryWords = query.toLowerCase().split(/\s+/);
+      const results = result.data.map((row: any) => {
+        // Calculate relevance score
+        const text = `${row.user_message || ''} ${row.ai_response || ''}`.toLowerCase();
+        let relevanceScore = 0;
+        
+        for (const word of queryWords) {
+          if (word.length > 2 && text.includes(word)) {
+            relevanceScore += 0.2;
+          }
+        }
+        
+        return {
+          sessionId: row.session_id,
+          sessionName: row.session_name || `Session ${row.session_id?.slice(0, 8)}`,
+          userMessage: row.user_message,
+          aiResponse: row.ai_response,
+          relevanceScore: Math.min(1, relevanceScore),
+          timestamp: new Date(row.timestamp)
+        };
+      }).filter((r: any) => r.relevanceScore >= (options?.minRelevance || 0.1));
+
+      return {
+        results: results.sort((a: any, b: any) => b.relevanceScore - a.relevanceScore),
+        totalFound: results.length
+      };
+    } catch (error) {
+      logger.error('Failed to search all sessions:', error);
+      return { results: [], totalFound: 0 };
+    }
+  }
+
+  /**
+   * Build context window from database with cross-session support
+   */
+  private async buildContextWindow(sessionId: string, maxTokens: number, options?: {
+    includeCrossSession?: boolean;
+    maxCrossSessionHistory?: number;
+    query?: string;
+  }): Promise<ContextWindow> {
+    try {
+      // Allocate token budget: 75% for current session, 25% for cross-session
+      const currentSessionTokens = options?.includeCrossSession 
+        ? Math.floor(maxTokens * 0.75) 
+        : maxTokens;
+      const crossSessionTokens = options?.includeCrossSession 
+        ? Math.floor(maxTokens * 0.25) 
+        : 0;
+
       const result = await this.db.executeQuery(`
         SELECT 
           user_message, ai_response, timestamp, sentiment_score, 
@@ -277,18 +567,19 @@ export class EnhancedMemoryService {
       let totalTokens = 0;
 
       // Process in reverse to maintain chronological order
-      for (let i = rows.length - 1; i >= 0 && totalTokens < maxTokens; i--) {
+      for (let i = rows.length - 1; i >= 0 && totalTokens < currentSessionTokens; i--) {
         const row = rows[i];
         const messageTokens = row.tokens_used || Math.ceil(((row.user_message?.length || 0) + (row.ai_response?.length || 0)) / 4);
         
-        if (totalTokens + messageTokens > maxTokens) break;
+        if (totalTokens + messageTokens > currentSessionTokens) break;
 
         if (row.user_message) {
           messages.push({
             role: 'user',
             content: row.user_message,
             timestamp: new Date(row.timestamp),
-            sentiment: row.sentiment_score
+            sentiment: row.sentiment_score,
+            sessionId
           });
           sentiments.push(row.sentiment_score || 0);
         }
@@ -297,13 +588,18 @@ export class EnhancedMemoryService {
           messages.push({
             role: 'assistant',
             content: row.ai_response,
-            timestamp: new Date(row.timestamp)
+            timestamp: new Date(row.timestamp),
+            sessionId
           });
         }
 
         // Extract topics from context tags
-        const tags = JSON.parse(row.context_tags || '[]');
-        tags.forEach((tag: string) => allTopics.add(tag));
+        try {
+          const tags = JSON.parse(row.context_tags || '[]');
+          tags.forEach((tag: string) => allTopics.add(tag));
+        } catch {
+          // Ignore JSON parse errors
+        }
 
         totalTokens += messageTokens;
       }
@@ -316,10 +612,23 @@ export class EnhancedMemoryService {
       const emotionalTrend = recentSentiment > avgSentiment + 0.1 ? 'improving' :
                             recentSentiment < avgSentiment - 0.1 ? 'declining' : 'stable';
 
-      // Generate summary if needed
+      // Generate summary if needed (with generous threshold 100-500)
       let summary = '';
-      if (messages.length > this.config.contextSummaryThreshold && this.config.autoSummarize) {
-        summary = await this.generateContextSummary(messages.slice(0, -10));
+      if (messages.length > this.config.contextSummaryMinMessages && this.config.autoSummarize) {
+        const msgsToSummarize = messages.slice(0, Math.min(messages.length - 20, this.config.contextSummaryMaxMessages));
+        summary = await this.generateContextSummary(msgsToSummarize);
+      }
+
+      // Build cross-session context if enabled
+      let crossSessionContext: CrossSessionContext | undefined;
+      if (options?.includeCrossSession && crossSessionTokens > 0) {
+        crossSessionContext = await this.buildCrossSessionContext(
+          sessionId, 
+          crossSessionTokens, 
+          options.maxCrossSessionHistory || this.config.maxCrossSessionHistory,
+          options.query
+        );
+        totalTokens += crossSessionContext.totalCrossSessionMessages * 50; // Approximate token estimate
       }
 
       return {
@@ -328,7 +637,8 @@ export class EnhancedMemoryService {
         topics: Array.from(allTopics),
         emotionalTrend,
         conversationDepth: messages.length,
-        totalTokens
+        totalTokens,
+        crossSessionContext
       };
     } catch (error) {
       logger.error('Failed to build context window:', error);
@@ -344,7 +654,65 @@ export class EnhancedMemoryService {
   }
 
   /**
-   * Generate context summary (simple extraction for now)
+   * Build cross-session context for AI to reference past conversations
+   */
+  private async buildCrossSessionContext(
+    currentSessionId: string,
+    tokenBudget: number,
+    maxSessions: number,
+    query?: string
+  ): Promise<CrossSessionContext> {
+    try {
+      // Get summaries of past sessions
+      const sessionSummaries = await this.getSessionSummaries(currentSessionId, maxSessions);
+      
+      // If there's a query, search for relevant content across sessions
+      let relevantMessages: Array<{
+        sessionId: string;
+        sessionName: string;
+        content: string;
+        timestamp: Date;
+      }> = [];
+
+      if (query) {
+        const searchResults = await this.searchAllSessions(query, {
+          excludeSessionId: currentSessionId,
+          limit: 50,
+          minRelevance: 0.2
+        });
+        
+        relevantMessages = searchResults.results.map(r => ({
+          sessionId: r.sessionId,
+          sessionName: r.sessionName,
+          content: `User: ${r.userMessage}\nAssistant: ${r.aiResponse}`,
+          timestamp: r.timestamp
+        }));
+      }
+
+      return {
+        includedSessions: sessionSummaries.map(s => s.sessionId),
+        sessionSummaries: sessionSummaries.map(s => ({
+          sessionId: s.sessionId,
+          sessionName: s.sessionName,
+          messageCount: s.messageCount,
+          topics: s.topics,
+          lastActive: s.lastActive,
+          summary: s.summary
+        })),
+        totalCrossSessionMessages: relevantMessages.length
+      };
+    } catch (error) {
+      logger.error('Failed to build cross-session context:', error);
+      return {
+        includedSessions: [],
+        sessionSummaries: [],
+        totalCrossSessionMessages: 0
+      };
+    }
+  }
+
+  /**
+   * Generate context summary with generous limits
    */
   private async generateContextSummary(messages: ContextWindow['recentMessages']): Promise<string> {
     // Simple keyword extraction - could be enhanced with AI summarization
@@ -360,13 +728,17 @@ export class EnhancedMemoryService {
       }
     }
 
-    // Get top keywords
+    // Get top keywords - more generous (up to 30)
     const topKeywords = Array.from(keywords.entries())
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
+      .slice(0, 30)
       .map(([word]) => word);
 
-    return `Discussion topics: ${topKeywords.join(', ')}. Total exchanges: ${messages.length}.`;
+    // Build a more comprehensive summary
+    const uniqueSessions = new Set(messages.map(m => m.sessionId).filter(Boolean));
+    const sessionInfo = uniqueSessions.size > 1 ? ` across ${uniqueSessions.size} sessions` : '';
+    
+    return `Conversation summary${sessionInfo}: ${messages.length} exchanges covering topics: ${topKeywords.join(', ')}.`;
   }
 
   /**
