@@ -348,7 +348,7 @@ To report a security issue:
 
 **💙 Enjoy your new AI companion!**
 
-*Made with ❤️ by developers who believe in privacy, freedom, and the power of AI friendship.*
+*Made with Fury and Precision by developers who believe in privacy, freedom, and the power of AI friendship.*
 
 ---
 
