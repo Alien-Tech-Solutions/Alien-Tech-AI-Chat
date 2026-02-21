@@ -145,10 +145,11 @@ const initialState: AppState & {
   memoryStats: null,
   memoryStatsLoading: false,
   
-  // Enhanced Memory
+  // Enhanced Memory - crossSessionEnabled starts as null/false until preferences are fetched from server
+  // The UI shows a loading state until memoryPreferences is populated
   memoryPreferences: null,
   sessionSummaries: [],
-  crossSessionEnabled: false, // Opt-in for privacy - users must explicitly enable
+  crossSessionEnabled: false, // Will be updated when server preferences are fetched
 };
 
 export const useAppStore = create<AppStore>()(
@@ -361,11 +362,15 @@ export const useAppStore = create<AppStore>()(
         toggleCrossSession: async (enabled: boolean, userId?: string) => {
           try {
             const response = await api.toggleCrossSessionMemory(enabled, userId);
-            if (response.data) {
-              set({ 
-                memoryPreferences: response.data,
-                crossSessionEnabled: response.data.crossSessionEnabled
-              });
+            if (response.data && typeof response.data.crossSessionEnabled === 'boolean') {
+              const newCrossSessionEnabled = response.data.crossSessionEnabled;
+              set((state) => ({ 
+                // Update memoryPreferences if it exists, otherwise just update crossSessionEnabled
+                memoryPreferences: state.memoryPreferences 
+                  ? { ...state.memoryPreferences, crossSessionEnabled: newCrossSessionEnabled }
+                  : null,
+                crossSessionEnabled: newCrossSessionEnabled
+              }));
             }
           } catch (err: any) {
             console.error('Failed to toggle cross-session:', err);

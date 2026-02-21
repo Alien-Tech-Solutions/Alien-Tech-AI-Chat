@@ -42,14 +42,9 @@ const SettingsInterface: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<'general' | 'appearance' | 'ai' | 'memory' | 'privacy' | 'advanced'>('general');
   const [localSettings, setLocalSettings] = useState<UserSettings>(settings);
-  const [localMemoryPrefs, setLocalMemoryPrefs] = useState<Partial<UserMemoryPreferences>>({
-    crossSessionEnabled: crossSessionEnabled,
-    maxCrossSessionHistory: memoryPreferences?.maxCrossSessionHistory || 10,
-    contextTokenLimit: memoryPreferences?.contextTokenLimit || 128000,
-    maxContextMessages: memoryPreferences?.maxContextMessages || 1000,
-    autoSummarize: memoryPreferences?.autoSummarize ?? true,
-    privacyLevel: memoryPreferences?.privacyLevel || 'normal',
-  });
+  const [localMemoryPrefs, setLocalMemoryPrefs] = useState<Partial<UserMemoryPreferences> | null>(null);
+  const [memoryPrefsLoaded, setMemoryPrefsLoaded] = useState(false);
+  const [memoryPrefsChanged, setMemoryPrefsChanged] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [showApiKeys, setShowApiKeys] = useState(false);
   const [apiKeys, setApiKeys] = useState({
@@ -68,7 +63,7 @@ const SettingsInterface: React.FC = () => {
     fetchMemoryPreferences();
   }, []);
 
-  // Update local memory preferences when store changes
+  // Update local memory preferences when store changes (after fetch completes)
   useEffect(() => {
     if (memoryPreferences) {
       setLocalMemoryPrefs({
@@ -79,13 +74,22 @@ const SettingsInterface: React.FC = () => {
         autoSummarize: memoryPreferences.autoSummarize,
         privacyLevel: memoryPreferences.privacyLevel,
       });
+      setMemoryPrefsLoaded(true);
+      setMemoryPrefsChanged(false); // Reset changed flag when preferences are freshly loaded
     }
   }, [memoryPreferences]);
 
-  // Check for changes
+  // Check for changes (include memory preference changes)
   useEffect(() => {
-    setHasChanges(JSON.stringify(localSettings) !== JSON.stringify(settings));
-  }, [localSettings, settings]);
+    const settingsChanged = JSON.stringify(localSettings) !== JSON.stringify(settings);
+    setHasChanges(settingsChanged || memoryPrefsChanged);
+  }, [localSettings, settings, memoryPrefsChanged]);
+
+  // Helper to update local memory prefs and mark as changed
+  const updateLocalMemoryPrefs = (updates: Partial<UserMemoryPreferences>) => {
+    setLocalMemoryPrefs(prev => prev ? { ...prev, ...updates } : updates);
+    setMemoryPrefsChanged(true);
+  };
 
   const loadSettings = async () => {
     try {
@@ -126,8 +130,11 @@ const SettingsInterface: React.FC = () => {
       // Save API keys
       localStorage.setItem('api-keys', JSON.stringify(apiKeys));
       
-      // Save memory preferences
-      await updateMemoryPreferences(localMemoryPrefs);
+      // Only save memory preferences if they were explicitly changed and loaded
+      if (memoryPrefsChanged && localMemoryPrefs && memoryPrefsLoaded) {
+        await updateMemoryPreferences(localMemoryPrefs);
+        setMemoryPrefsChanged(false); // Reset changed flag after successful save
+      }
       
       setSaveStatus('success');
       setTimeout(() => setSaveStatus('idle'), 2000);
@@ -500,6 +507,12 @@ const SettingsInterface: React.FC = () => {
                   </div>
                 </div>
 
+                {!memoryPrefsLoaded ? (
+                  <div className="flex items-center justify-center p-8">
+                    <RefreshCw className="w-6 h-6 animate-spin text-primary mr-2" />
+                    <span className="text-base-content/60">Loading memory preferences...</span>
+                  </div>
+                ) : (
                 <div className="space-y-4">
                   {/* Cross-Session Memory Toggle */}
                   <div className="flex items-center justify-between p-4 bg-base-200 rounded-lg">
@@ -515,8 +528,8 @@ const SettingsInterface: React.FC = () => {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={localMemoryPrefs.crossSessionEnabled}
-                        onChange={(e) => setLocalMemoryPrefs(prev => ({ ...prev, crossSessionEnabled: e.target.checked }))}
+                        checked={localMemoryPrefs?.crossSessionEnabled ?? false}
+                        onChange={(e) => updateLocalMemoryPrefs({ crossSessionEnabled: e.target.checked })}
                         className="sr-only peer"
                       />
                       <div className="w-11 h-6 bg-base-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
@@ -537,8 +550,8 @@ const SettingsInterface: React.FC = () => {
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={localMemoryPrefs.autoSummarize}
-                        onChange={(e) => setLocalMemoryPrefs(prev => ({ ...prev, autoSummarize: e.target.checked }))}
+                        checked={localMemoryPrefs?.autoSummarize ?? true}
+                        onChange={(e) => updateLocalMemoryPrefs({ autoSummarize: e.target.checked })}
                         className="sr-only peer"
                       />
                       <div className="w-11 h-6 bg-base-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
@@ -560,13 +573,13 @@ const SettingsInterface: React.FC = () => {
                       type="range"
                       min="1"
                       max="20"
-                      value={localMemoryPrefs.maxCrossSessionHistory || 10}
-                      onChange={(e) => setLocalMemoryPrefs(prev => ({ ...prev, maxCrossSessionHistory: parseInt(e.target.value) }))}
+                      value={localMemoryPrefs?.maxCrossSessionHistory ?? 10}
+                      onChange={(e) => updateLocalMemoryPrefs({ maxCrossSessionHistory: parseInt(e.target.value) })}
                       className="range range-primary w-full"
                     />
                     <div className="flex justify-between text-xs text-base-content/60 mt-2">
                       <span>1 session</span>
-                      <span className="font-medium text-primary">{localMemoryPrefs.maxCrossSessionHistory || 10} sessions</span>
+                      <span className="font-medium text-primary">{localMemoryPrefs?.maxCrossSessionHistory ?? 10} sessions</span>
                       <span>20 sessions</span>
                     </div>
                   </div>
@@ -593,8 +606,8 @@ const SettingsInterface: React.FC = () => {
                             type="radio"
                             name="privacyLevel"
                             value={level.value}
-                            checked={localMemoryPrefs.privacyLevel === level.value}
-                            onChange={(e) => setLocalMemoryPrefs(prev => ({ ...prev, privacyLevel: e.target.value as 'strict' | 'normal' | 'relaxed' }))}
+                            checked={localMemoryPrefs?.privacyLevel === level.value}
+                            onChange={(e) => updateLocalMemoryPrefs({ privacyLevel: e.target.value as 'strict' | 'normal' | 'relaxed' })}
                             className="radio radio-primary"
                           />
                           <div>
@@ -634,10 +647,12 @@ const SettingsInterface: React.FC = () => {
                           Conversation data is stored on your configured server instance (according to its retention policies), 
                           not just in this browser. Enable this feature only if you are comfortable with the server storing 
                           context across sessions.
+                        </p>
                       </div>
                     </div>
                   </div>
                 </div>
+                )}
               </div>
             )}
 
