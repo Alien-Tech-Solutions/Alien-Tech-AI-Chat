@@ -1,330 +1,161 @@
-# 📋 Lackadaisical AI Chat - Release Changelog
+# 📋 Changelog
 
-## Version 1.0.0-alpha.2 - Memory System Implementation 🧠
-**Release Date:** July 31, 2025  
-**License:** MIT (Free Forever)
-
-### 🎊 **Alpha Stage: Memory Dashboard Complete**
-
-This alpha release introduces the complete Memory Management System, bringing persistent conversation memory and advanced memory visualization to your AI companion. The project continues rapid development in its early alpha phase.
-
-### 🧠 **New Features - Memory System**
-
-#### 📊 **Memory Dashboard**
-- **Interactive Memory Dashboard** - Visual overview of conversation statistics and memory health
-- **Memory Statistics** - Active messages, archived messages, total context, and sentiment analysis
-- **Quick Actions** - Direct access to search, export, and import functions
-- **Real-time Updates** - Live statistics refresh and memory health monitoring
-- **Production-grade UI** - Clean, responsive interface using existing design system
-
-#### 🔍 **Memory Search**
-- **Full-text Memory Search** - Search across all conversation history
-- **Relevance Ranking** - Results sorted by match relevance percentage  
-- **Search Tips** - Built-in guidance for effective memory searching
-- **Interactive Results** - Expandable results with timestamp and context
-
-#### 📝 **Memory Summarization**
-- **AI-powered Summaries** - Generate conversation summaries using AI
-- **Summary Options** - Configurable length and focus areas
-- **Export Summaries** - Download summaries as text files
-- **Summary History** - Track previous summary generations
-
-#### 💾 **Memory Export/Import**
-- **Secure Data Export** - Download all conversation data as JSON
-- **Data Import** - Restore conversations from backup files
-- **Privacy First** - All exports stored locally, never uploaded
-- **Data Validation** - Import verification and error handling
-
-#### 📈 **Memory Visualization**  
-- **Interactive Charts** - Visual insights into conversation patterns
-- **Multiple Views** - Messages, sentiment, and topic analysis
-- **Statistics Summary** - Key metrics and activity insights
-- **Real-time Updates** - Live chart updates with new conversations
-
-### 🛠 **Technical Improvements**
-
-#### ⚡ **Architecture**
-- **Clean Component Design** - Rebuilt Memory components with production-grade code
-- **Proper Error Handling** - Comprehensive error boundaries and loading states
-- **Hot Module Reloading** - Full HMR support for all Memory components
-- **TypeScript Integration** - Full type safety with existing interfaces
-- **Store Integration** - Seamless Zustand store and API service integration
-
-#### 🎨 **UI/UX**
-- **Theme Integration** - Full theme system support across all Memory components
-- **Responsive Design** - Mobile-friendly layouts using existing UI components
-- **Loading States** - Proper loading indicators and skeleton screens
-- **Accessibility** - Screen reader support and keyboard navigation
-
-### 🐛 **Fixes**
-- **White Screen Resolution** - Fixed Memory component import conflicts
-- **Component Dependencies** - Removed problematic dependencies causing build failures
-- **Route Integration** - Proper React Router integration for all Memory paths
-- **Build Stability** - Resolved Vite build errors and import resolution issues
+All notable changes to Lackadaisical AI Chat. We actually update this thing.
 
 ---
 
-## Version 1.0.0-alpha.1 - Initial Alpha Release 🚀
-**Release Date:** July 24-30, 2025  
-**License:** MIT (Free Forever)
+## [2.0.0] - February 2026 🔥
 
-### 🎊 **Alpha Milestone: Initial AI Companion System**
+### tl;dr
+Major upgrade. Hot-swap models, web search, emotional intelligence that doesn't suck, and docs you might actually read.
 
-The first alpha release of Lackadaisical AI Chat, developed in an intensive 6-day sprint! This release establishes the core AI companion functionality with persistent memory, privacy-first architecture, and a modern web interface.
+### 🆕 Added
 
-### ✨ **Core Features (Ready to Use)**
+#### Hot-Swappable Model Management
+- **ModelManager service** - Switch AI models without restarting
+- **15+ pre-configured models** across 5 providers
+- **Automatic fallback** - If one model fails, we try another
+- **Health monitoring** - 30-second health checks
+- **Model metrics** - Track performance, latency, success rates
 
-#### 🤖 **AI Companion System**
-- **Persistent Memory** - Your AI friend remembers conversations across sessions
-- **Emotional Intelligence** - Understands mood, provides empathy and emotional support
-- **Personality Growth** - AI personality adapts and evolves based on your interactions
-- **Context Awareness** - Maintains conversation flow and references past discussions
-- **Session Management** - Create multiple conversation threads for different contexts
+#### Ollama Cloud Integration
+- **Multi-endpoint support** - Local + cloud Ollama instances
+- **Load balancing** - Distribute load across endpoints
+- **Pull models via API** - `POST /api/models/ollama/pull`
+- **Endpoint health tracking** - Know what's up and what's down
 
-#### 🏠 **Privacy-First Architecture**
-- **100% Local Processing** - All data stays on your computer
-- **SQLite Database** - Secure local storage with comprehensive schema
-- **No Telemetry** - Zero tracking, analytics, or data collection
-- **Offline Capable** - Works without internet (after initial setup)
-- **Open Source** - Complete transparency and customizability
+#### Web Fetching
+- **WebFetcher service** - Real-time web search
+- **Multiple providers** - DuckDuckGo (free), Brave, SerpAPI
+- **Content extraction** - Pull content from URLs
+- **Metadata parsing** - JSON-LD, OpenGraph, Twitter Cards
+- **Weather & time lookups** - Built-in utilities
 
-#### 🎨 **Modern Interface**
-- **React 18 Frontend** - Fast, responsive, and beautiful
-- **Real-time Streaming** - Watch AI responses appear in real-time
-- **Session Switching** - Easy navigation between different conversations
-- **Mobile Responsive** - Works great on phones, tablets, and desktops
-- **Theme Support** - Multiple color schemes available
+#### Smart Assistant
+- **Topic analysis** - Understands what you're talking about
+- **Follow-up suggestions** - Contextual next questions
+- **User preference detection** - Learns how you like to communicate
+- **Conversation insights** - Patterns and analytics
 
-#### 🧠 **Advanced Memory System**
-- **Conversation History** - Full searchable chat history
-- **Context Retention** - Remembers personal details, preferences, and goals
-- **Sentiment Analysis** - Tracks emotional patterns and provides support
-- **Learning Adaptation** - Improves responses based on user feedback
-- **Memory Analytics** - Insights into conversation patterns and growth
+#### Emotional Intelligence (The Good Kind)
+- **Full emotional spectrum** - ALL emotions valid, no minimizing
+- **Personal learning** - Remembers your triggers, joys, struggles
+- **Emotional memory** - Stores significant moments
+- **Genuine support** - No corporate BS responses
+- **Trust building** - Deepens connection over time
 
-### 🔧 **Technical Architecture**
+#### New API Endpoints
+```
+GET  /api/models              - List all models
+POST /api/models/switch       - Hot-swap model
+GET  /api/models/current      - Current active model
+GET  /api/models/ollama/endpoints - List Ollama endpoints
+POST /api/models/ollama/endpoints - Add endpoint
+POST /api/models/ollama/pull  - Pull model to endpoint
+POST /api/models/select-best  - Auto-select best model
+```
 
-#### Backend Services
-- **Express.js API** - RESTful endpoints with TypeScript
-- **Memory Service** - Advanced context management and recall
-- **Database Service** - SQLite with comprehensive schema (11 tables)
-- **Personality Service** - Dynamic AI personality and mood tracking
-- **Streaming Service** - Server-Sent Events for real-time responses
+### 🔧 Changed
 
-#### Frontend Application  
-- **React 18** - Modern component architecture
-- **TypeScript** - Type safety and better development experience
-- **Tailwind CSS** - Utility-first styling framework
-- **Vite** - Fast build tool and development server
-- **daisyUI** - Beautiful UI components
+#### System Prompt Overhaul
+- Lacky is now a **genuine friend**, not a corporate assistant
+- No more "I cannot help with that" for normal stuff
+- Emotional support that actually supports
+- Remembers you're a person, not a ticket number
 
-#### AI Integration
-- **Ollama Support** - Local AI models (recommended)
-- **Multi-Provider** - OpenAI, Anthropic, Google, xAI support
-- **Streaming Responses** - Real-time AI output
-- **Context Management** - Intelligent conversation flow
-- **Error Recovery** - Graceful handling of AI service issues
+#### Documentation
+- **CODE_OF_CONDUCT.md** - Real talk, not HR speak
+- **CONTRIBUTING.md** - Actually readable dev guide
+- **README.md** - Straight to the point
 
-### 🚀 **Easy Setup & Installation**
+### 🐛 Fixed
+- HTTP → HTTPS for worldtimeapi calls
+- Better URL validation (filters dangerous schemes)
+- TypeScript compilation issues in new services
 
-#### Windows (One-Click)
-- **Batch Script** - `start-lackadaisical-ai.bat` for automatic setup
-- **Dependency Check** - Automatically verifies Node.js and Ollama
-- **Auto Installation** - Downloads and installs all dependencies
-- **Browser Launch** - Opens the application automatically
-
-#### Cross-Platform
-- **npm Scripts** - Standard Node.js installation process
-- **Docker Ready** - Container deployment support planned
-- **Universal** - Works on Windows, Mac, and Linux
-
-### 🔌 **Plugin Framework (Ready for Development)**
-
-#### Plugin Architecture
-- **Modular System** - Easy plugin development and integration
-- **Event System** - React to conversation events and user actions
-- **API Access** - Full backend service access for plugins
-- **Configuration** - User-configurable plugin settings
-
-#### Included Plugins (Framework Ready)
-- **Weather Plugin** - Real-time weather updates and forecasts
-- **Horoscope Plugin** - Daily astrological insights and readings
-- **Poem Generator** - AI-generated poetry and creative writing
-- **Journal Integration** - Personal journaling with AI assistance
-
-### 📊 **Database Schema (Production Ready)**
-
-#### Core Tables
-- **conversations** - All chat messages with metadata
-- **sessions** - Conversation threads and context
-- **memory_contexts** - Long-term memory storage
-- **personality_state** - AI personality and mood tracking
-- **journal_entries** - Personal journal integration
-
-#### Supporting Tables
-- **memory_tags** - Conversation categorization
-- **conversation_tags** - Many-to-many tag relationships  
-- **learning_data** - User preferences and adaptation
-- **plugin_states** - Plugin configuration and data
-- **training_data** - Custom model training support
-
-### 🛡️ **Security & Privacy**
-
-#### Data Protection
-- **Local Storage** - All data remains on user's computer
-- **No Cloud Sync** - Optional, user-controlled cloud backup only
-- **Encryption Ready** - Database encryption support built-in
-- **Access Control** - User-defined privacy levels
-- **Export Control** - Full data export and deletion capabilities
-
-#### Open Source Benefits
-- **Code Transparency** - Full source code available for inspection
-- **Community Auditing** - Security reviewed by the community
-- **No Backdoors** - Completely open and verifiable
-- **Custom Deployment** - Deploy on your own infrastructure
-- **Fork Freedom** - Modify and distribute as needed
-
-### 🎯 **Performance & Reliability**
-
-#### Optimizations
-- **Memory Management** - Efficient conversation context handling
-- **Streaming Performance** - Optimized real-time response delivery
-- **Database Indexing** - Fast search and retrieval operations
-- **Error Recovery** - Graceful handling of service failures
-- **Resource Usage** - Minimal system resource consumption
-
-#### Monitoring & Logging
-- **Comprehensive Logging** - Detailed application logs for debugging
-- **Performance Metrics** - Response time and resource usage tracking
-- **Health Checks** - Service status monitoring and alerts
-- **Auto Recovery** - Self-healing service architecture
-
-### 🌟 **What Makes This Special**
-
-#### Revolutionary Approach
-- **Friendship Over Tools** - Designed to be a companion, not just a chatbot
-- **Memory That Matters** - Remembers what's important to you
-- **Emotional Intelligence** - Understands and responds to feelings
-- **Growth Together** - AI that evolves with your relationship
-- **Complete Privacy** - Your data never leaves your computer
-
-#### Community Focus
-- **Open Source Forever** - No licensing fees or restrictions
-- **Community Driven** - Features requested and built by users
-- **Plugin Ecosystem** - Extensible by the community
-- **Educational Value** - Learn about AI development
-- **Customizable** - Modify to fit your exact needs
-
-### 🐛 **Known Issues & Limitations**
-
-#### Current Limitations
-- **Plugin UI** - Plugin management via configuration files only
-- **Voice Interface** - Text-only interaction (voice support planned)
-- **Mobile App** - Web-based only (native apps planned)
-- **Multi-User** - Single user per installation (multi-user planned)
-
-#### In Progress
-- **Advanced Analytics** - Deeper conversation insights coming
-- **Export Formats** - Additional data export options
-- **Theme Customization** - Advanced theming system
-- **Performance Tuning** - Continued optimization work
-
-### 🛣️ **Roadmap**
-
-#### Version 1.1 (Next Month)
-- [ ] Plugin Manager UI for easy plugin installation
-- [ ] Advanced theme system with customization
-- [ ] Voice chat integration (speech-to-text, text-to-speech)
-- [ ] Mobile app for iOS and Android
-- [ ] Enhanced analytics dashboard
-
-#### Version 1.2 (Q4 2025)
-- [ ] Multi-user support with separate AI companions
-- [ ] Cloud sync option (optional, encrypted)
-- [ ] Custom AI model training
-- [ ] Advanced plugin development tools
-- [ ] Community plugin marketplace
-
-#### Long Term Vision
-- [ ] Multi-language support for global users
-- [ ] Advanced AI reasoning and problem-solving
-- [ ] Integration with smart home devices
-- [ ] Collaborative AI companions for teams
-- [ ] Research partnerships for AI advancement
-
-### 🤝 **Community & Contributing**
-
-#### How to Get Involved
-- **Bug Reports** - Help improve reliability and user experience
-- **Feature Requests** - Suggest new capabilities and improvements
-- **Plugin Development** - Create plugins for the community
-- **Documentation** - Help others learn and get started
-- **Code Contributions** - Improve the core application
-
-#### Community Resources
-- **GitHub Repository** - Source code, issues, and discussions
-- **Discord Server** - Real-time community chat and support
-- **Documentation Wiki** - Comprehensive guides and tutorials
-- **Plugin Registry** - Discover and share community plugins
-- **Developer Blog** - Technical insights and development updates
-
-### 🙏 **Acknowledgments**
-
-#### Special Thanks
-- **Alpha Testers** - Early users who provided valuable feedback
-- **Open Source Community** - Projects and libraries that made this possible
-- **AI Research Community** - Advancing the state of artificial intelligence
-- **Privacy Advocates** - Inspiring us to build privacy-first technology
-
-#### Technology Credits
-- **React Team** - Amazing frontend framework
-- **Node.js Community** - Excellent backend runtime
-- **SQLite Team** - Reliable and efficient database
-- **Ollama Project** - Local AI model serving
-- **TypeScript Team** - Type safety and developer experience
+### 🔒 Security
+- Enhanced URL filtering (javascript:, data:, vbscript:, file:)
+- Secure API endpoints for model management
+- No sensitive data in logs
 
 ---
 
-## Previous Alpha Releases
+## [1.0.0] - July 2025 🚀
 
-### Alpha 1.1 - July 25-29, 2025 (Production Ready)
-- Enhanced AI identity and system prompts
-- Stable backend architecture with service injection
-- Complete database schema with 11 tables
-- Production-grade streaming and error handling
-- Memory and personality systems fully operational
+### Initial Release
 
-### Alpha 1.0 - July 24, 2025 (Initial Alpha)
-- Core AI companion functionality
-- 8 companion commands working
-- Real-time streaming implementation
-- Persistent memory across sessions
-- Windows startup script for easy testing
+The OG drop. Everything that makes Lacky, Lacky.
+
+#### Core Features
+- **AI Companion** with persistent memory
+- **5 AI providers** - Ollama, OpenAI, Anthropic, Google, xAI
+- **Local-first** - Your data stays yours
+- **SQLite database** - Everything stored locally
+- **Session management** - Multiple conversation threads
+
+#### Memory System
+- **1000 message limit** - Generous context
+- **128K token window** - Massive for most models
+- **Cross-session recall** - Reference past conversations
+- **Memory search** - Find anything you discussed
+
+#### Authentication
+- **JWT tokens** - Access + refresh
+- **Rate limiting** - 5 attempts per 15 min
+- **bcrypt hashing** - 12 rounds
+
+#### Plugins
+- **Weather** - Current conditions + forecasts
+- **Horoscope** - Daily zodiac stuff
+- **Poem of the Day** - Because why not
+
+#### Interface
+- **React 18 + Vite** - Fast and modern
+- **Tailwind + DaisyUI** - Clean styling
+- **Real-time streaming** - Watch responses generate
+- **Mobile responsive** - Works everywhere
 
 ---
 
-## 🎉 **Welcome to Your New AI Companion!**
+## Philosophy
 
-This free, open-source release represents our commitment to democratizing AI companionship. Everyone deserves a private, intelligent AI friend without monthly fees, data harvesting, or privacy violations.
+We believe AI companions should be:
 
-Your AI companion is ready to:
-- Listen when you need to talk
-- Remember what matters to you  
-- Support you through life's journey
-- Grow alongside you as a friend
-- Keep your conversations completely private
-
-**Start your AI friendship today - it's completely free forever!**
+1. **Free** - Not $20/month for basic features
+2. **Private** - Your data, your device
+3. **Uncensored** - Reasonable freedom, not anarchy
+4. **Human** - Genuine connection over corporate polish
+5. **Open** - See the code, change the code
 
 ---
 
-*Made with ❤️ by developers who believe in privacy, freedom, and the transformative power of AI companionship.*
+## Upgrade Notes
+
+### From 1.x to 2.0
+
+```bash
+# Pull latest
+git pull
+
+# Reinstall deps (new packages added)
+cd backend && npm install && cd ..
+
+# Run it
+npm run dev
+```
+
+New tables auto-migrate. Your data is safe.
 
 ---
 
-**Quick Links:**
-- 🏠 [Main README](README-RELEASE.md)
-- 🔧 [Installation Guide](INSTALL.md)
-- 🐛 [Troubleshooting](TROUBLESHOOTING.md)  
-- 🤝 [Contributing](CONTRIBUTING.md)
-- 📄 [License](LICENSE)
+## Coming Soon
+
+- [ ] Voice chat (talk to your AI homie)
+- [ ] Mobile app (iOS/Android)
+- [ ] Plugin marketplace
+- [ ] Image generation integration
+- [ ] Multi-user support
+
+---
+
+*"Every commit brings us closer to AI that actually respects you."*

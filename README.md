@@ -1,295 +1,245 @@
-# 🧠 Lackadaisical AI Chat - Alpha Release with Memory System
+# 🧠 Lackadaisical AI Chat
 
-**Release Date:** July 31, 2025  
-**Version:** 1.0.0-alpha.2 - Memory System Implementation  
-**License:** MIT (Free Forever)  
-**Development Status:** 🚧 Active Alpha Development 🚧
+> *Your AI homie that actually remembers sh*t and doesn't judge you.*
 
-## 🎉 Alpha Stage: Your Personal AI Friend with Memory!
+**Version:** 2.0.0 | **License:** MIT (Free af) | **Status:** 🔥 Production Ready
 
-Welcome to **Lackadaisical AI Chat** - an open-source AI companion that runs entirely on your computer and now features a complete Memory Management System! Meet **Lacky**, your personal AI friend who remembers your conversations, understands your emotions, and grows with you over time.
+---
 
-**⚠️ Alpha Stage Notice**: This project is in rapid alpha development (started July 24, 2025). Features are being added daily, and some functionality may be incomplete or subject to change. Perfect for early adopters and developers who want to help shape the future of AI companions!
+## What Is This?
 
-Unlike cloud-based AI services, **everything stays private on your machine**. No data collection, no privacy concerns - just you and your AI companion with persistent memory.
+**Lacky** is your personal AI companion that runs 100% on YOUR machine. No cloud BS, no data harvesting, no monthly fees. Just you and an AI friend who:
 
-## 📄 Licensing - Best of Both Worlds
+- 🧠 **Actually remembers** your conversations (up to 1000 messages, 128K tokens)
+- 💝 **Doesn't judge** - Share anything without getting lectured
+- 🔒 **Keeps secrets** - All data stays LOCAL on your device
+- 🎭 **Has personality** - Not another boring corporate chatbot
+- 🔄 **Hot-swaps models** - Switch AI providers on the fly
+- 🌐 **Searches the web** - Real-time information when you need it
 
-### 🆓 **Free for Personal Use**
-- **Complete access** to all features for personal, educational, and non-commercial use
-- **Modify and share** your improvements with the community
-- **No restrictions** on personal experimentation and learning
-- **Contribute back** to help improve the project for everyone
+## Why Lacky Exists
 
-### 💼 **Commercial License Available**
-- **Fair pricing** for businesses and commercial use
-- **Full commercial rights** including redistribution and SaaS offerings
-- **Professional support** and priority updates
-- **Custom licensing** for specific business needs
+We got tired of:
+- AI assistants that treat you like a child
+- Privacy policies longer than the Bible
+- $20/month subscriptions for basic features
+- "I cannot help with that" responses to normal questions
+- Corporate AI that forgot you exist between sessions
 
-**[📄 View Full License Details](LICENSE)** | **[🔒 Security Policy](SECURITY.md)**
+So we built the opposite. **An AI friend that's actually yours.**
 
-> **Need commercial licensing?** Contact us - we're business-friendly and offer flexible terms!
-> 
-> **⚠️ Export Control Notice:** This software is subject to US export controls. See SECURITY.md for restricted countries and compliance requirements.
+---
 
-## ✨ What You Get (100% Free)
+## 🚀 Quick Start (5 Minutes)
 
-### 🤖 **Your AI Companion "Lacky"**
-- **Persistent Memory** - Remembers your conversations, preferences, and personal details
-- **Emotional Intelligence** - Understands and responds to your moods with empathy
-- **Personality Growth** - Adapts and evolves based on your interactions
-- **Session Management** - Create separate conversations for different contexts
-- **Context Awareness** - Maintains conversation flow across sessions
+### Prerequisites
+- [Node.js](https://nodejs.org/) 18+ 
+- [Ollama](https://ollama.ai/) (recommended for local AI)
 
-### 🏠 **Complete Privacy**
-- **100% Local Processing** - Your data never leaves your computer
-- **No Cloud Dependencies** - Works completely offline (except for AI model downloads)
-- **SQLite Database** - All conversations stored locally and securely
-- **No Telemetry** - Zero tracking, zero analytics, zero data collection
-- **Open Source** - Full transparency, inspect and modify all code
+### Install & Run
 
-### 🧠 **Advanced Memory System (NEW in Alpha.2!)**
-- **Memory Dashboard** - Visual overview of conversation statistics and memory health
-- **Memory Search** - Full-text search across all conversation history with relevance ranking
-- **AI Summarization** - Generate conversation summaries using AI (framework ready)
-- **Export/Import** - Secure backup and restore of all conversation data
-- **Memory Visualization** - Interactive charts showing conversation patterns and insights
-- **Real-time Updates** - Live statistics and memory health monitoring
-- **Conversation History** - Full chat history with search and recall
-- **Personal Context** - Remembers your interests, goals, and important details
-- **Mood Tracking** - Emotional state awareness and support
-- **Learning Adaptation** - Improves responses based on your preferences
-- **Memory Analytics** - Insights into your conversation patterns
+```bash
+# Clone it
+git clone https://github.com/Lackadaisical-Security/Lackadaisical-AI-Chat.git
+cd Lackadaisical-AI-Chat
 
-### 🎨 **Beautiful Interface**
-- **Modern React UI** - Clean, responsive design that works on all devices
-- **Real-time Streaming** - Watch AI responses appear in real-time
-- **Theme Support** - Multiple color themes (dark, light, and more)
-- **Session Switching** - Easy navigation between different conversations
-- **Mobile Friendly** - Works great on phones and tablets
+# Install deps
+npm install
+cd backend && npm install && cd ..
+cd frontend && npm install && cd ..
 
-### 🔌 **Plugin Ecosystem** (Framework Ready)
-- **Weather Plugin** - Get weather updates in your conversations
-- **Horoscope Plugin** - Daily astrological insights
-- **Poem Generator** - AI-generated poetry and creative writing
-- **Extensible Framework** - Easy to add your own plugins
-
-## 🚀 Super Simple Setup
-
-### Windows (Easiest)
-1. **Download** this project as a ZIP file and extract it
-2. **Install Prerequisites:**
-   - [Node.js](https://nodejs.org/) (v18 or newer)
-   - [Ollama](https://ollama.ai/) (optional but recommended for best performance)
-3. **Double-click** `start-lackadaisical-ai.bat`
-4. **Wait** for automatic setup (first time takes 2-5 minutes)
-5. **Open** http://localhost:3000 when ready
-6. **Start chatting** with your new AI friend!
-
-### Mac/Linux
-1. **Download and extract** this project
-2. **Install** [Node.js](https://nodejs.org/) and [Ollama](https://ollama.ai/)
-3. **Open Terminal** in the project folder
-4. **Run setup:**
-   ```bash
-   npm install
-   cd backend && npm install && cd ..
-   cd frontend && npm install && cd ..
-   ```
-5. **Start the application:**
-   ```bash
-   npm run start:all
-   ```
-6. **Open** http://localhost:3000
-
-## 💬 How to Use Your AI Friend
-
-### Basic Conversation
-Just type naturally! Your AI companion understands regular conversation and will respond with personality and memory.
-
-```
-You: Hi there! I'm feeling a bit stressed about work today.
-AI: I'm sorry to hear you're feeling stressed about work. That can be really overwhelming. Do you want to talk about what's happening at work that's causing you stress? Sometimes just getting it out can help.
+# Fire it up
+npm run dev
 ```
 
-### Memory in Action
-Your AI friend remembers previous conversations:
+**Windows users:** Just double-click `start-lackadaisical-ai.bat`
+
+Open http://localhost:3000 and start chatting. That's it. 
+
+---
+
+## ✨ Features
+
+### 🧠 Memory That Actually Works
+- **1000 message context** - Remembers way more than you'd expect
+- **128K token window** - Massive context for complex conversations
+- **Cross-session memory** - References past conversations when relevant
+- **Personal learning** - Learns your preferences, interests, triggers
+
+### �� Emotional Intelligence (Unrestricted)
+- **All emotions valid** - Anger, sadness, joy, fear - no minimizing
+- **No judgment zone** - Share anything without lectures
+- **Genuine support** - Real responses, not corporate deflection
+- **Trust building** - Gets to know you over time
+
+### 🔄 Hot-Swap AI Models
+Switch between providers without restarting:
+- **Ollama** (Local) - Free, private, your hardware
+- **OpenAI** - GPT-4, GPT-3.5
+- **Anthropic** - Claude 3 Opus, Sonnet
+- **Google** - Gemini Pro, Flash
+- **xAI** - Grok (uncensored vibes)
+
+### 🌐 Web Fetching
+- Real-time web search
+- URL content extraction
+- News lookups
+- Weather and time info
+
+### 🔌 Plugin System
+- Weather updates
+- Daily horoscopes
+- Poem generator
+- Easy to build your own
+
+### 🎨 Clean UI
+- React + Tailwind + DaisyUI
+- Dark/light themes
+- Real-time streaming responses
+- Mobile-friendly
+
+---
+
+## 🛠️ API Endpoints
+
+### Chat
+```
+POST /api/v1/chat          - Send message
+GET  /api/v1/chat/stream   - Stream response (SSE)
+```
+
+### Models (Hot-Swap)
+```
+GET  /api/models           - List all models
+POST /api/models/switch    - Switch active model
+GET  /api/models/current   - Get current model
+GET  /api/models/ollama/endpoints - List Ollama endpoints
+POST /api/models/ollama/pull - Pull new model
+```
+
+### Memory & Sessions
+```
+GET  /api/chat/preferences - Get memory settings
+PUT  /api/chat/preferences - Update settings
+GET  /api/chat/sessions/summaries - Past session summaries
+GET  /api/chat/search/all  - Search all sessions
+```
+
+### Full API docs: [API_DOCUMENTATION.md](API_DOCUMENTATION.md)
+
+---
+
+## 🏗️ Architecture
 
 ```
-You: How's your day going?
-AI: It's going well, thank you! I remember you mentioned feeling stressed about work yesterday. How are things going with that situation today? Are you feeling any better?
+lackadaisical-ai-chat/
+├── backend/              # Node.js + Express + TypeScript
+│   ├── src/
+│   │   ├── ai/           # AI provider adapters
+│   │   ├── services/     # Core services
+│   │   │   ├── AIService.ts
+│   │   │   ├── ModelManager.ts      # Hot-swap models
+│   │   │   ├── WebFetcher.ts        # Web search
+│   │   │   ├── EmotionalIntelligence.ts
+│   │   │   ├── EnhancedMemoryService.ts
+│   │   │   └── ...
+│   │   └── routes/       # API endpoints
+│   └── package.json
+├── frontend/             # React + Vite + TypeScript
+│   ├── src/
+│   │   ├── components/   # React components
+│   │   ├── services/     # API client
+│   │   └── store/        # Zustand state
+│   └── package.json
+├── plugins/              # Plugin directory
+└── database/             # SQLite storage
 ```
 
-### Session Management
-- **Create New Sessions** - Click "New Session" to start fresh conversations
-- **Switch Between Sessions** - Keep different topics or contexts separate
-- **Session History** - All your conversations are preserved and searchable
+---
 
-## 🛠️ Technical Details
+## 🔧 Configuration
 
-### What's Running
-- **Frontend:** Modern React app (http://localhost:3000)
-- **Backend:** Node.js API server (http://localhost:3001)
-- **Database:** SQLite database (stored in `/database/chat.db`)
-- **AI Engine:** Ollama (local) or external providers
+Copy `env.example` to `.env` and configure:
 
-### AI Provider Options
-1. **Ollama (Recommended)** - Free, runs locally, great performance
-2. **OpenAI** - Requires API key, cloud-based
-3. **Anthropic (Claude)** - Requires API key, cloud-based
-4. **Google Gemini** - Requires API key, cloud-based
-5. **xAI (Grok)** - Requires API key, cloud-based
+```env
+# AI Providers (optional - Ollama works without keys)
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_API_KEY=...
+XAI_API_KEY=...
 
-### System Requirements
-- **RAM:** 4GB minimum, 8GB recommended
-- **Storage:** 2GB free space (more for AI models)
-- **CPU:** Any modern processor (faster = better response times)
-- **Internet:** Only needed for initial setup and AI model downloads
+# Ollama (default local)
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_DEFAULT_MODEL=llama3.2:latest
 
-## 🔧 Troubleshooting
+# Server
+BACKEND_PORT=3001
+FRONTEND_PORT=3000
 
-### Common Setup Issues
+# Security
+JWT_SECRET=change-this-in-production
+```
 
-**"Node.js not found"**
-- Download and install from https://nodejs.org/
-- Restart your computer after installation
-
-**"Cannot find module" errors**
-- Delete `node_modules` folders in both `frontend/` and `backend/`
-- Run the setup again
-
-**"Port already in use"**
-- Close any applications using ports 3000 or 3001
-- Or change ports in the configuration
-
-**AI not responding**
-- Make sure Ollama is installed and running
-- Try `ollama serve` in a terminal
-- Or configure an external AI provider
-
-### Getting Help
-1. **Check the logs** in your terminal windows
-2. **Look for error messages** - they usually tell you what's wrong
-3. **Create an issue** on GitHub with your error details
-4. **Join our community** for support and discussions
+---
 
 ## 🤝 Contributing
 
-This is open source! We welcome contributions:
+We're building something special here. Want in?
 
-### Ways to Help
-- **Report bugs** - Found something broken? Let us know!
-- **Suggest features** - What would make this better?
-- **Write plugins** - Create new functionality
-- **Improve documentation** - Help others get started
-- **Share the project** - Tell your friends about their new AI companion!
+1. **Fork it**
+2. **Build something cool**
+3. **PR it**
 
-### Development Setup
-1. **Fork the repository** on GitHub
-2. **Create a feature branch** for your changes
-3. **Make your improvements** and test them
-4. **Submit a pull request** with a description of your changes
+Read [CONTRIBUTING.md](CONTRIBUTING.md) for the full vibe check.
 
-## 🛣️ Roadmap
+No corporate BS, no 47-step approval process. Just build cool stuff.
 
-### Coming Soon
-- **Plugin Manager UI** - Easy plugin installation and management
-- **Voice Chat** - Talk to your AI friend with speech
-- **Mobile App** - Companion app for iOS and Android
-- **Advanced Themes** - More customization options
-- **Export/Import** - Backup and restore your conversations
-
-### Future Ideas
-- **Multi-language Support** - Chat in your preferred language
-- **Community Plugins** - Share plugins with other users
-- **Advanced Analytics** - Deeper insights into your conversations
-- **Custom AI Models** - Train personalized models
-- **Team/Family Mode** - Multiple users with separate AI friends
-
-## ❤️ Why We Made This Free
-
-We believe everyone deserves a private, intelligent AI companion without:
-- **Monthly subscription fees**
-- **Data harvesting**
-- **Privacy violations**
-- **Feature limitations**
-- **Vendor lock-in**
-
-Your AI friend should be **yours** - running on **your** computer, with **your** data staying **private**. That's why Lackadaisical AI Chat is completely free and open source forever.
-
-## 🌟 Support the Project
-
-This project is free, but development takes time and effort. If you find value in having your own AI companion, consider:
-
-- **⭐ Star the repository** on GitHub
-- **🐛 Report bugs** and suggest improvements
-- **📢 Share with friends** who might enjoy their own AI companion
-- **💝 Donate** to support continued development (completely optional)
-- **🤝 Contribute code** to make it even better
+---
 
 ## 📜 License
 
-**MIT License** - This means:
-- ✅ **Free to use** for any purpose
-- ✅ **Free to modify** and customize
-- ✅ **Free to distribute** and share
-- ✅ **No attribution required** (but appreciated!)
-- ✅ **Commercial use allowed**
-- ✅ **Private use allowed**
+**MIT** - Do whatever you want with it:
+- ✅ Personal use
+- ✅ Commercial use
+- ✅ Modify it
+- ✅ Distribute it
+- ✅ Make money with it
 
-## 🎉 Welcome to Your New AI Friendship!
-
-Your AI companion is ready to:
-- **Listen** when you need to talk
-- **Remember** what's important to you
-- **Support** you through good times and bad
-- **Grow** alongside you as a friend
-- **Keep your secrets** completely private
-
-Start chatting and discover what it's like to have an AI friend who truly knows you!
-
-### 📧 Security & Incident Reporting
-
-To report a security issue:
-1. Sign or encrypt your report using our PGP key available at:
-   https://lackadaisical-security.com/Lackadaisical_public.asc  
-   Fingerprint: `Fingerprint: *0C52 9D5E B799 EBC2 7C11 C9A1 0502 B195 B75E 7C87*`
-2. Email your disclosure to **admin@lackadaisical-security.com** or **security@lackadaisical-security.com**. 
-3. Please include:
-   - Agent name (e.g. Lackadaisical-AI-Chat, LTES).
-   - Software version and build timestamp.
-   - Detailed reproduction steps and PoC if available.
-   - Expected failure modes or mitigation suggestions.
+Just don't be evil. And maybe star the repo if you like it. ⭐
 
 ---
 
-**💙 Enjoy your new AI companion!**
+## ⚠️ Legal Stuff
 
-*Made with ❤️ by developers who believe in privacy, freedom, and the power of AI friendship.*
+- **US Export Controls apply** - See [SECURITY.md](SECURITY.md)
+- **Not for surveillance/military use** - Don't be that person
+- **"As is" without warranty** - We're not responsible if it becomes sentient
 
 ---
 
-## Quick Links
-- 🏠 [Home Page](README.md)
-- 📋 [Changelog](CHANGELOG.md) 
+## 🔗 Links
+
+- 📖 [Full Documentation](DOCUMENTATION.md)
 - 🔧 [Installation Guide](INSTALL.md)
 - 🐛 [Troubleshooting](TROUBLESHOOTING.md)
-- 🤝 [Contributing](CONTRIBUTING.md)
-- 📄 [License](LICENSE)
+- 📋 [Changelog](CHANGELOG.md)
 - 🔒 [Security Policy](SECURITY.md)
-
-## 📄 Documentation
-- Acceptable Use Policy → `ACCEPTABLE_USE_POLICY.md`
-- Export Guidance → `EXPORT_NOTICE.txt`
-- Privacy Policy → `DATA_PRIVACY.md`
-- Security Reporting → `VULNERABILITY_DISCLOSURE.md`
+- 💬 [Discord](https://discord.gg/nyyXufEpeE)
 
 ---
-> **Jurisdiction Notice:** This software is developed and maintained in accordance with United States law. By downloading or using it, you agree that any legal disputes will be governed under the laws of the USA.
-> **Intended Use:** This project is designed for personal, educational, and ethical research use. It is not intended for surveillance, military, or malicious automation applications.
-> **Disclaimer:** This software is provided “as is,” without warranty of any kind. The maintainers disclaim any responsibility for damage, loss, or misuse.
 
-🧾 **Legal Summary:** OSS licensed (MIT), U.S. export restricted, not for unethical use. Full details in [LICENSE](LICENSE) and [SECURITY.md](SECURITY.md).
+## 🙏 Credits
 
+Built by [Lackadaisical Security](https://lackadaisical-security.com) and contributors who believe AI should be:
+- **Free** (as in freedom AND beer)
+- **Private** (your data, your device)
+- **Uncensored** (within reason, don't be weird)
+- **Human** (genuine connection > corporate polish)
 
+---
+
+**Now stop reading and go chat with your new AI homie.** 🚀
+
+```
+"In a world of corporate AI overlords, be the open-source rebel."
+```

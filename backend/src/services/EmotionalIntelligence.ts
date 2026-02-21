@@ -999,6 +999,6 @@ export class EmotionalIntelligence {
   }
 }
 
-// Export singleton
-export const emotionalIntelligence = new EmotionalIntelligence(null as any); // Will be initialized properly
+// Note: EmotionalIntelligence should be instantiated with a proper DatabaseService
+// Example: const ei = new EmotionalIntelligence(databaseService);
 export default EmotionalIntelligence;

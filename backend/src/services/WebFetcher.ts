@@ -380,12 +380,20 @@ export class WebFetcher {
       // Extract links if requested
       const links: Array<{ text: string; href: string }> = [];
       if (options.includeLinks !== false) {
+        // Dangerous URL schemes to filter out
+        const dangerousSchemes = ['javascript:', 'data:', 'vbscript:', 'file:'];
+        
         $('a[href]').each((i, el) => {
           if (i >= 50) return; // Limit to 50 links
           const $a = $(el);
           const href = $a.attr('href');
           const text = $a.text().trim();
-          if (href && text && !href.startsWith('#') && !href.startsWith('javascript:')) {
+          
+          // Filter out dangerous URLs
+          const isDangerous = !href || href.startsWith('#') || 
+            dangerousSchemes.some(scheme => href.toLowerCase().startsWith(scheme));
+          
+          if (href && text && !isDangerous) {
             links.push({
               text: text.substring(0, 100),
               href: href.startsWith('http') ? href : new URL(href, url).href
@@ -670,9 +678,9 @@ export class WebFetcher {
     timezone: string;
   }> {
     try {
-      // Use worldtimeapi.org for time data
+      // Use worldtimeapi.org for time data (HTTPS for security)
       const response = await this.httpClient.get(
-        `http://worldtimeapi.org/api/timezone/${encodeURIComponent(location)}`,
+        `https://worldtimeapi.org/api/timezone/${encodeURIComponent(location)}`,
         { timeout: 10000 }
       );
 
