@@ -1,4 +1,4 @@
-# 📚 Documentation Index - Lackadaisical AI Chat
+# 📚 Documentation Index - Lackadaisical AI Chat v2-Alpha
 
 Welcome to the comprehensive documentation for Lackadaisical AI Chat! This index will help you find exactly what you're looking for, whether you're a user, developer, or contributor.
 
@@ -10,6 +10,15 @@ Welcome to the comprehensive documentation for Lackadaisical AI Chat! This index
 2. **[INSTALL.md](INSTALL.md)** - Detailed installation guide
 3. **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)** - Common issues and solutions
 
+## 🆕 v2-Alpha Features
+
+New in v2-alpha:
+- **[Hot-Swap Models](#hot-swap-models)** - Switch AI models without restart
+- **[Web Fetching](#web-fetching)** - Real-time web search
+- **[Emotional Intelligence](#emotional-intelligence)** - Genuine emotional support
+- **[Cross-Session Memory](#cross-session-memory)** - Reference past conversations
+- **[Authentication](#authentication)** - JWT-based auth system
+
 ## 📖 User Documentation
 
 ### Getting Started
@@ -18,10 +27,17 @@ Welcome to the comprehensive documentation for Lackadaisical AI Chat! This index
 - **[User Interface Guide](#)** - Navigate the chat interface
 - **[Basic Features Overview](#)** - Core functionality walkthrough
 
+### v2-Alpha Features
+- **Hot-Swap Models** - Switch between 15+ AI models from 5 providers
+- **Web Fetching** - Ask about current events and get real-time info
+- **Emotional Intelligence** - A true friend who understands ALL emotions
+- **Cross-Session Memory** - AI remembers past conversations (1000 msgs, 128K tokens)
+- **Authentication** - JWT-based auth with rate limiting
+
 ### Core Features
 - **[Chat Interface](#)** - Using the conversation system
 - **[Session Management](#)** - Creating and managing conversations
-- **[Memory System](#)** - How your AI remembers you
+- **[Memory System](#)** - How your AI remembers you (enhanced in v2-alpha)
 - **[Personality Features](#)** - AI companion personality
 - **[Journal System](#)** - Personal journaling integration
 
@@ -275,16 +291,18 @@ Use these tags to filter documentation:
 
 | Document | Status | Last Updated | Next Review |
 |----------|--------|--------------|-------------|
-| README.md | ✅ Complete | 2025-07-31 | 2025-08-31 |
-| INSTALL.md | ✅ Complete | 2025-07-31 | 2025-08-31 |
-| API_DOCUMENTATION.md | ✅ Complete | 2025-07-31 | 2025-08-31 |
-| DEVELOPER_GUIDE.md | ✅ Complete | 2025-07-31 | 2025-08-31 |
-| PLUGIN_DEVELOPMENT.md | ✅ Complete | 2025-07-31 | 2025-08-31 |
-| ARCHITECTURE.md | ✅ Complete | 2025-07-31 | 2025-08-31 |
-| CONTRIBUTING.md | ✅ Complete | 2025-07-31 | 2025-08-31 |
-| CODE_OF_CONDUCT.md | ✅ Complete | 2025-07-31 | 2025-08-31 |
-| SECURITY.md | ✅ Complete | 2025-07-31 | 2025-08-31 |
-| TROUBLESHOOTING.md | ✅ Complete | 2025-07-31 | 2025-08-31 |
+| README.md | ✅ Complete | 2026-02 | 2026-03 |
+| INSTALL.md | ✅ Updated for v2-alpha | 2026-02 | 2026-03 |
+| API_DOCUMENTATION.md | ✅ Updated for v2-alpha | 2026-02 | 2026-03 |
+| DEVELOPER_GUIDE.md | ✅ Complete | 2026-02 | 2026-03 |
+| PLUGIN_DEVELOPMENT.md | ✅ Complete | 2026-02 | 2026-03 |
+| ARCHITECTURE.md | ✅ Updated for v2-alpha | 2026-02 | 2026-03 |
+| DOCUMENTATION.md | ✅ Updated for v2-alpha | 2026-02 | 2026-03 |
+| CONTRIBUTING.md | ✅ Complete | 2026-02 | 2026-03 |
+| CODE_OF_CONDUCT.md | ✅ Complete | 2026-02 | 2026-03 |
+| SECURITY.md | ✅ Complete | 2026-02 | 2026-03 |
+| TROUBLESHOOTING.md | ✅ Complete | 2026-02 | 2026-03 |
+| CHANGELOG.md | ✅ Updated for v2-alpha | 2026-02 | 2026-03 |
 
 ## 🔄 Documentation Updates
 
@@ -313,6 +331,6 @@ Thank you for using Lackadaisical AI Chat! This documentation is created with �
 
 **Questions?** Don't hesitate to reach out - we're here to help! 🤗
 
-**Last Updated**: July 31, 2025  
-**Documentation Version**: 1.0.0  
-**Next Review**: August 31, 2025
+**Last Updated**: February 2026  
+**Documentation Version**: 2.0.0-alpha  
+**Next Review**: March 2026
