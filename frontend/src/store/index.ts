@@ -362,7 +362,10 @@ export const useAppStore = create<AppStore>()(
           try {
             const response = await api.toggleCrossSessionMemory(enabled, userId);
             if (response.data) {
-              set({ crossSessionEnabled: response.data.crossSessionEnabled });
+              set({ 
+                memoryPreferences: response.data,
+                crossSessionEnabled: response.data.crossSessionEnabled
+              });
             }
           } catch (err: any) {
             console.error('Failed to toggle cross-session:', err);
