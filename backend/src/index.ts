@@ -31,6 +31,7 @@ import companionRoutes, { createCompanionRoutes } from './routes/companion';
 import createChatRoutes from './routes/chat';
 import sessionRoutes, { createSessionRoutes } from './routes/sessions';
 import contextRoutes, { createContextRoutes } from './routes/context';
+import authRoutes from './routes/auth';
 import AIService from './services/AIService';
 
 // Import WebSocket handler
@@ -127,6 +128,7 @@ class LackadaisicalAIServer {
     this.app.use('/health', healthRoutesWithDeps);
 
     // Main API routes with versioning
+    this.app.use(`${apiBase}/auth`, authRoutes);
     this.app.use(`${apiBase}/chat`, chatRoutesWithDeps);
     this.app.use(`${apiBase}/journal`, createJournalRoutes(this.database));
     this.app.use(`${apiBase}/personality`, personalityRoutes);
@@ -136,6 +138,7 @@ class LackadaisicalAIServer {
     this.app.use(`${apiBase}`, contextRoutesWithDeps);
 
     // Direct API routes for frontend compatibility
+    this.app.use('/api/auth', authRoutes);
     this.app.use('/api/chat', chatRoutesWithDeps);
     this.app.use('/api/journal', createJournalRoutes(this.database));
     this.app.use('/api/personality', personalityRoutes);

@@ -17,6 +17,11 @@ build/
 .cache/
 *.tsbuildinfo
 
+# TypeScript build outputs in wrong places
+config/*.js
+config/*.d.ts
+config/*.map
+
 # IDE
 .vscode/settings.json
 .idea/

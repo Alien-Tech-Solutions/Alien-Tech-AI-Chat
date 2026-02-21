@@ -312,7 +312,7 @@ export class OllamaWrapper {
           repeat_penalty: 1.1,
           top_p: 0.9,
           top_k: 40,
-          stop: ['User:', 'Human:', '\\\\n\\\\nUser:', '\\\\n\\\\nHuman:', '<|system|>', '<|end|>', '<|user|>', '<|assistant|>']
+          stop: ['User:', 'Human:', '\n\nUser:', '\n\nHuman:', '<|system|>', '<|end|>', '<|user|>', '<|assistant|>']
         }
       };
 
@@ -421,7 +421,7 @@ export class OllamaWrapper {
           repeat_penalty: 1.1,
           top_p: 0.9,
           top_k: 40,
-          stop: ['User:', 'Human:', '\\\\n\\\\nUser:', '\\\\n\\\\nHuman:', '<|system|>', '<|end|>', '<|user|>', '<|assistant|>']
+          stop: ['User:', 'Human:', '\n\nUser:', '\n\nHuman:', '<|system|>', '<|end|>', '<|user|>', '<|assistant|>']
         }
       };
 
