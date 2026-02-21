@@ -221,7 +221,7 @@ export class ResourceOptimizer {
    * Queue a write operation for batching
    */
   queueWrite(operation: Omit<WriteOperation, 'id' | 'timestamp' | 'retries'>): string {
-    const id = `write_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const id = `write_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     
     const writeOp: WriteOperation = {
       ...operation,

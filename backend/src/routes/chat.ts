@@ -666,9 +666,9 @@ router.get('/analytics/:sessionId', asyncHandler(async (req: Request, res: Respo
 }));
 
 /**
- * GET /chat/analytics - Get global analytics across all sessions
+ * GET /chat/analytics/global - Get global analytics across all sessions
  */
-router.get('/global-analytics', asyncHandler(async (req: Request, res: Response) => {
+router.get('/analytics/global', asyncHandler(async (req: Request, res: Response) => {
   const days = parseInt(req.query.days as string) || 30;
 
   const analytics = await conversationManager.getGlobalAnalytics(days);

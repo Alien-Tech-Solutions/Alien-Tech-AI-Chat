@@ -5,6 +5,24 @@ import { Conversation } from '../types';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 
+// Common English stop words for text processing
+const STOP_WORDS = new Set([
+  'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+  'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+  'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought', 'used',
+  'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'as',
+  'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'under',
+  'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how',
+  'all', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor',
+  'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just',
+  'and', 'but', 'if', 'or', 'because', 'until', 'while', 'although', 'though', 'since', 'unless',
+  'that', 'this', 'these', 'those', 'what', 'which', 'who', 'whom', 'whose',
+  'i', 'me', 'my', 'mine', 'myself', 'we', 'us', 'our', 'ours', 'ourselves',
+  'you', 'your', 'yours', 'yourself', 'yourselves',
+  'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself',
+  'it', 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves'
+]);
+
 export interface ConversationEntry {
   id?: number;
   sessionId: string;
@@ -261,7 +279,7 @@ export class EnhancedMemoryService {
       // Process in reverse to maintain chronological order
       for (let i = rows.length - 1; i >= 0 && totalTokens < maxTokens; i--) {
         const row = rows[i];
-        const messageTokens = row.tokens_used || Math.ceil((row.user_message?.length || 0 + row.ai_response?.length || 0) / 4);
+        const messageTokens = row.tokens_used || Math.ceil(((row.user_message?.length || 0) + (row.ai_response?.length || 0)) / 4);
         
         if (totalTokens + messageTokens > maxTokens) break;
 
@@ -331,13 +349,12 @@ export class EnhancedMemoryService {
   private async generateContextSummary(messages: ContextWindow['recentMessages']): Promise<string> {
     // Simple keyword extraction - could be enhanced with AI summarization
     const keywords = new Map<string, number>();
-    const stopWords = new Set(['the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'shall', 'can', 'need', 'dare', 'ought', 'used', 'to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'as', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'between', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 'just', 'and', 'but', 'if', 'or', 'because', 'until', 'while', 'although', 'though', 'since', 'unless', 'that', 'this', 'these', 'those', 'what', 'which', 'who', 'whom', 'whose', 'i', 'me', 'my', 'mine', 'myself', 'we', 'us', 'our', 'ours', 'ourselves', 'you', 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself', 'it', 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves']);
 
     for (const msg of messages) {
       const words = msg.content.toLowerCase().split(/\s+/);
       for (const word of words) {
         const cleanWord = word.replace(/[^a-z]/g, '');
-        if (cleanWord.length > 3 && !stopWords.has(cleanWord)) {
+        if (cleanWord.length > 3 && !STOP_WORDS.has(cleanWord)) {
           keywords.set(cleanWord, (keywords.get(cleanWord) || 0) + 1);
         }
       }
