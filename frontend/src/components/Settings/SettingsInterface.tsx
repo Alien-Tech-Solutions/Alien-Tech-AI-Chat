@@ -631,9 +631,9 @@ const SettingsInterface: React.FC = () => {
                         <h4 className="font-medium text-warning">Privacy Note</h4>
                         <p className="text-sm text-base-content/70 mt-1">
                           Cross-session memory allows the AI to reference previous conversations. 
-                          All data remains local on your device. Enable this feature only if you want 
-                          the AI to maintain context across sessions.
-                        </p>
+                          Conversation data is stored on your configured server instance (according to its retention policies), 
+                          not just in this browser. Enable this feature only if you are comfortable with the server storing 
+                          context across sessions.
                       </div>
                     </div>
                   </div>
