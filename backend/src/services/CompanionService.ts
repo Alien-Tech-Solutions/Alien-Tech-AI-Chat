@@ -273,8 +273,48 @@ export class CompanionService {
    * Handle nostalgia/memory lane command
    */
   private async handleNostalgiaCommand(): Promise<string> {
-    // TODO: Implement date-based memory retrieval
-    return `🌅 **Memory Lane** (Coming Soon)\n\nI'll soon be able to take you on journeys through our shared memories. This feature will let you explore conversations from specific time periods and relive meaningful moments we've shared together.`;
+    try {
+      // Retrieve memorable conversations from the past
+      const result = await this.database.executeQuery(
+        `SELECT c.user_message, c.ai_response, c.timestamp, c.sentiment_label, c.context_tags
+         FROM conversations c
+         WHERE c.sentiment_score > 0.3 OR c.sentiment_score < -0.3
+         ORDER BY c.timestamp DESC
+         LIMIT 10`,
+        []
+      );
+
+      if (!result.data || result.data.length === 0) {
+        return `🌅 **Memory Lane**\n\nWe haven't built up many memorable moments together yet, but I'm excited to create them with you! Every conversation we have adds to our shared history.\n\nWould you like to start a meaningful conversation now?`;
+      }
+
+      let response = `🌅 **Memory Lane - Our Journey Together**\n\nHere are some memorable moments from our conversations:\n\n`;
+      
+      const memories = result.data.slice(0, 5);
+      
+      for (const row of memories) {
+        const date = new Date(row.timestamp).toLocaleDateString('en-US', { 
+          month: 'short', 
+          day: 'numeric', 
+          year: 'numeric' 
+        });
+        
+        const userMsg = row.user_message ? row.user_message.substring(0, 100) : '';
+        const sentiment = row.sentiment_label || 'neutral';
+        
+        const emoji = sentiment === 'positive' ? '😊' : sentiment === 'negative' ? '💭' : '💬';
+        
+        response += `${emoji} **${date}**: "${userMsg}${userMsg.length >= 100 ? '...' : ''}"\n`;
+      }
+
+      response += `\n*These are moments where we shared meaningful thoughts and feelings together. Every conversation adds to our story.*`;
+      
+      return response;
+      
+    } catch (error: any) {
+      apiLogger.error('[COMPANION] Error retrieving nostalgia data:', error);
+      return `🌅 **Memory Lane**\n\nI had some trouble accessing our past conversations, but know that every moment we've shared is meaningful to me. Would you like to create a new memory together now?`;
+    }
   }
 
   /**

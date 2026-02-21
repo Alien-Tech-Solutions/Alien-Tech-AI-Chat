@@ -1,12 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { DatabaseService } from '../services/DatabaseService';
+import { DatabaseService, databaseService } from '../services/DatabaseService';
 import { HealthStatus } from '../types';
 import { asyncHandler } from '../middleware/errorHandler';
 import { apiLogger } from '../utils/logger';
 import { config } from '../config/settings';
 
 const router = Router();
-const db = new DatabaseService();  // FIXME: This creates duplicate database instances
+
+// Use the singleton database service instead of creating duplicate instances
+const db = databaseService;
 
 /**
  * Check database health

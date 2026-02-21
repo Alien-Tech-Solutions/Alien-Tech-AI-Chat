@@ -1,12 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { DatabaseService } from '../services/DatabaseService';
+import { DatabaseService, databaseService } from '../services/DatabaseService';
 import { asyncHandler, createValidationError } from '../middleware/errorHandler';
 import { PersonalityState, MoodState } from '../types';
 import { apiLogger } from '../utils/logger';
 import { config } from '../config/settings';
 
 const router = Router();
-const db = new DatabaseService();  // FIXME: This creates duplicate database instances
+
+// Use the singleton database service instead of creating duplicate instances
+const db = databaseService;
 
 /**
  * GET /personality - Get current personality state
