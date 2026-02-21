@@ -25,6 +25,7 @@ interface AppStore extends AppState {
   clearContext: (sessionId: string) => Promise<void>;
   fetchMemoryStats: (sessionId: string) => Promise<void>;
   clearMemoryStats: () => void;
+  getContextWindow: (sessionId: string, maxTokens?: number) => Promise<string>;
   // Chat actions
   setCurrentSession: (session: ChatSession | null) => void;
   addSession: (session: ChatSession) => void;
