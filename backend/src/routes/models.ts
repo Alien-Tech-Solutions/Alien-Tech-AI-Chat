@@ -7,10 +7,12 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { modelManager, ModelInfo, OllamaEndpoint } from '../services/ModelManager';
 import { aiLogger } from '../utils/logger';
 import { optionalAuth } from '../middleware/auth';
+import { rateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
-// Apply optional auth to all routes
+// Apply rate limiting and optional auth to all routes
+router.use(rateLimiter);
 router.use(optionalAuth);
 
 /**
