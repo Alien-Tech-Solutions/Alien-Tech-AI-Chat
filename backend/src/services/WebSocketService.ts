@@ -2,12 +2,12 @@ import { WebSocket, WebSocketServer, RawData } from 'ws';
 import { IncomingMessage } from 'http';
 import { Server } from 'http';
 import { v4 as uuidv4 } from 'uuid';
-import { websocketLogger, perfLogger } from '../utils/logger';
+import { wsLogger, perfLogger } from '../utils/logger';
 import { DatabaseService } from './DatabaseService';
 import AIService from './AIService';
 import { WebSocketMessage, StreamChunk, ChatRequest, SentimentAnalysis } from '../types';
 import { SentimentAnalyzer } from '../middleware/sentiment';
-import { config } from '../../config/settings';
+import { config } from '../../../config/settings';
 
 interface WebSocketClient {
   id: string;
@@ -39,7 +39,7 @@ export class WebSocketService {
   private aiService: AIService;
   private sentimentAnalyzer: SentimentAnalyzer;
   private stats: WebSocketStats;
-  private heartbeatInterval: NodeJS.Timeout;
+  private heartbeatInterval: NodeJS.Timeout | null = null;
 
   constructor(server: Server, databaseService: DatabaseService) {
     this.databaseService = databaseService;
@@ -67,7 +67,7 @@ export class WebSocketService {
     this.setupWebSocketServer();
     this.startHeartbeat();
 
-    websocketLogger.info('WebSocket service initialized', {
+    wsLogger.info('WebSocket service initialized', {
       path: '/ws',
       maxPayload: '16MB'
     });
@@ -82,12 +82,12 @@ export class WebSocketService {
     });
 
     this.wss.on('error', (error: Error) => {
-      websocketLogger.error('WebSocket server error:', error);
+      wsLogger.error('WebSocket server error:', error);
       this.stats.errorCount++;
     });
 
     this.wss.on('close', () => {
-      websocketLogger.info('WebSocket server closed');
+      wsLogger.info('WebSocket server closed');
     });
   }
 
@@ -115,7 +115,7 @@ export class WebSocketService {
     this.stats.totalConnections++;
     this.stats.activeConnections++;
 
-    websocketLogger.info('New WebSocket connection', {
+    wsLogger.info('New WebSocket connection', {
       clientId,
       ip: clientIp,
       userAgent,
@@ -164,19 +164,20 @@ export class WebSocketService {
     try {
       const client = this.clients.get(clientId);
       if (!client) {
-        websocketLogger.warn('Message from unknown client', { clientId });
+        wsLogger.warn('Message from unknown client', { clientId });
         return;
       }
 
       client.lastActivity = new Date();
       this.stats.messagesReceived++;
 
-      const message = JSON.parse(data.toString()) as WebSocketMessage;
+      const dataStr = data.toString();
+      const message = JSON.parse(dataStr) as WebSocketMessage;
       
-      websocketLogger.debug('WebSocket message received', {
+      wsLogger.debug('WebSocket message received', {
         clientId,
         type: message.type,
-        dataSize: data.length
+        dataSize: dataStr.length
       });
 
       switch (message.type) {
@@ -201,7 +202,7 @@ export class WebSocketService {
           break;
         
         default:
-          websocketLogger.warn('Unknown message type', {
+          wsLogger.warn('Unknown message type', {
             clientId,
             type: message.type
           });
@@ -215,7 +216,7 @@ export class WebSocketService {
       const responseTime = Date.now() - startTime;
       this.stats.errorCount++;
       
-      websocketLogger.error('Error handling WebSocket message', {
+      wsLogger.error('Error handling WebSocket message', {
         clientId,
         error: error instanceof Error ? error.message : 'Unknown error',
         responseTime
@@ -251,9 +252,9 @@ export class WebSocketService {
       client.sessionId = sessionId;
 
       // Perform sentiment analysis
-      const sentimentAnalysis = await this.sentimentAnalyzer.analyzeText(chatData.message);
+      const sentimentAnalysis = await this.sentimentAnalyzer.analyzeSentiment(chatData.message);
       
-      websocketLogger.info('Processing WebSocket chat message', {
+      wsLogger.info('Processing WebSocket chat message', {
         clientId,
         sessionId,
         messageLength: chatData.message.length,
@@ -281,14 +282,14 @@ export class WebSocketService {
       // Update stats
       this.updateResponseTimeStats(responseTime);
       
-      websocketLogger.info('WebSocket chat response completed', {
+      wsLogger.info('WebSocket chat response completed', {
         clientId,
         sessionId,
         responseTime
       });
 
     } catch (error) {
-      websocketLogger.error('Error processing chat message', {
+      wsLogger.error('Error processing chat message', {
         clientId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -377,7 +378,7 @@ export class WebSocketService {
     this.clients.delete(clientId);
     this.stats.activeConnections--;
 
-    websocketLogger.info('WebSocket disconnection', {
+    wsLogger.info('WebSocket disconnection', {
       clientId,
       code,
       reason,
@@ -390,7 +391,7 @@ export class WebSocketService {
    * Handle client error
    */
   private handleError(clientId: string, error: Error): void {
-    websocketLogger.error('WebSocket client error', {
+    wsLogger.error('WebSocket client error', {
       clientId,
       error: error.message
     });
@@ -411,7 +412,7 @@ export class WebSocketService {
       client.ws.send(JSON.stringify(message));
       this.stats.messagesSent++;
     } catch (error) {
-      websocketLogger.error('Error sending message to client', {
+      wsLogger.error('Error sending message to client', {
         clientId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -459,7 +460,7 @@ export class WebSocketService {
       const timeSinceLastActivity = now - client.lastActivity.getTime();
       
       if (timeSinceLastActivity > timeoutThreshold) {
-        websocketLogger.warn('Client timeout, terminating connection', {
+        wsLogger.warn('Client timeout, terminating connection', {
           clientId,
           timeSinceLastActivity
         });
@@ -517,7 +518,7 @@ export class WebSocketService {
     }
 
     this.wss.close();
-    websocketLogger.info('WebSocket service closed');
+    wsLogger.info('WebSocket service closed');
   }
 }
 

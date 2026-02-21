@@ -445,8 +445,8 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
                                                      <Button
                              variant="ghost"
                              size="sm"
-                             onClick={(e: React.MouseEvent) => {
-                               e.stopPropagation();
+                             onClick={(e?: React.MouseEvent) => {
+                               e?.stopPropagation();
                                setEditingSession(session.id);
                                setEditName(session.name);
                              }}
@@ -458,8 +458,8 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({ isOpen, onToggle }) => {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={(e: React.MouseEvent) => {
-                              e.stopPropagation();
+                            onClick={(e?: React.MouseEvent) => {
+                              e?.stopPropagation();
                               handleDeleteSession(session.id);
                             }}
                             className="w-6 h-6 p-0 text-error"

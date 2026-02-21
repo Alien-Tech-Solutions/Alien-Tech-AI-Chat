@@ -54,19 +54,27 @@ export interface MoodSnapshot {
   context?: string;
 }
 
+// Extended JournalEntry to support both the schema and code usage
 export interface JournalEntry {
   id: number;
-  user_id: string;
-  entry_text: string;
-  mood_snapshot: MoodState;
-  sentiment_score: number;
-  sentiment_label: string;
+  user_id?: string;
+  title?: string;
+  content?: string;
+  entry_text?: string;
+  mood_snapshot?: MoodState;
+  mood?: string;
+  sentiment_score?: number;
+  sentiment_label?: string;
   tags: string[];
-  reflection_prompts: string[];
-  ai_insights: string | null;
-  privacy_level: 'private' | 'shared' | 'public';
-  word_count: number;
-  reading_time_seconds: number;
+  themes?: string[];
+  emotions?: string[];
+  reflection_prompts?: string[];
+  ai_insights?: string | null;
+  privacy_level: 'private' | 'shared' | 'public' | 'deleted';
+  word_count?: number;
+  reading_time_seconds?: number;
+  reading_time_minutes?: number;
+  session_id?: string;
   created_at: string;
   updated_at: string;
 }
@@ -100,15 +108,17 @@ export interface MemoryTag {
 export interface Session {
   id: string;
   name: string | null;
-  description: string | null;
+  description?: string | null;
   message_count: number;
-  total_tokens: number;
-  start_time: string;
-  last_activity: string;
-  status: 'active' | 'archived' | 'deleted';
-  metadata: Record<string, any>;
+  total_tokens?: number;
+  start_time?: string;
+  last_activity?: string;
+  last_active?: string;
+  context_summary?: string;
+  status?: 'active' | 'archived' | 'deleted';
+  metadata?: Record<string, any>;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface LearningData {
@@ -205,22 +215,36 @@ export interface ChatResponse {
 }
 
 export interface JournalRequest {
-  entry_text: string;
+  title?: string;
+  content?: string;
+  entry_text?: string;
   tags?: string[];
-  privacy_level?: 'private' | 'shared' | 'public';
+  mood?: string;
+  session_id?: string;
+  privacy_level?: 'private' | 'shared' | 'public' | 'deleted';
 }
 
 export interface JournalResponse {
   entry: JournalEntry;
+  insights?: {
+    themes?: string[];
+    emotions?: string[];
+    wordCount?: number;
+    readingTime?: number;
+  } | string;
   ai_insights?: string;
   suggested_tags?: string[];
+  metadata?: {
+    response_time_ms?: number;
+    [key: string]: any;
+  };
 }
 
 // WebSocket message types
 export interface WebSocketMessage {
-  type: 'chat' | 'stream_chunk' | 'mood_update' | 'session_update' | 'error';
+  type: string;
   data: any;
-  timestamp: string;
+  timestamp?: string;
 }
 
 // Error types
@@ -315,15 +339,6 @@ export interface AppConfig {
   };
 }
 
-// Utility types
-export type Partial<T> = {
-  [P in keyof T]?: T[P];
-};
-
-export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
-
-export type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>;
-
 // Express middleware types
 export interface AuthenticatedRequest {
   user?: {
@@ -357,4 +372,4 @@ export interface HealthStatus {
 }
 
 // Export all types as a namespace as well
-export * as Types from './index'; 
+export * as Types from './index';

@@ -3,8 +3,8 @@ export class ApiError extends Error {
   public readonly isOperational: boolean;
 
   constructor(
+    statusCode: number,
     message: string,
-    statusCode: number = 500,
     isOperational: boolean = true,
     stack: string = ''
   ) {

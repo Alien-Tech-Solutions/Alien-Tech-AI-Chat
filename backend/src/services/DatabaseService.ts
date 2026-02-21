@@ -53,7 +53,7 @@ class SQLiteAdapter implements IDatabaseAdapter {
     
     try {
       const stmt = this.db.prepare(query);
-      const data = stmt.all(...params);
+      const data = stmt.all(...params) as T;
       return { data };
     } catch (error) {
       dbLogger.error('SQLite query failed:', { query, error });
@@ -70,7 +70,7 @@ class SQLiteAdapter implements IDatabaseAdapter {
       return {
         data: undefined,
         affected_rows: result.changes,
-        last_insert_id: result.lastInsertRowid
+        last_insert_id: Number(result.lastInsertRowid)
       };
     } catch (error) {
       dbLogger.error('SQLite statement failed:', { query, error });
@@ -652,16 +652,6 @@ export class DatabaseService {
     ];
 
     await this.executeStatement(query, params);
-  }
-
-  async getSessions(): Promise<Session[]> {
-    const query = 'SELECT * FROM sessions ORDER BY last_active DESC';
-    const result = await this.executeQuery<Session[]>(query);
-    
-    return result.data.map(row => ({
-      ...row,
-      metadata: JSON.parse(row.metadata as any || '{}'),
-    }));
   }
 
   // =============================================================================

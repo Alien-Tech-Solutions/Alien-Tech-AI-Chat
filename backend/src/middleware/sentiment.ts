@@ -104,7 +104,7 @@ class SentimentAnalyzer {
    */
   private extractEmotionalMarkers(text: string): any {
     const lowerText = text.toLowerCase();
-    const words = natural.WordTokenizer.prototype.tokenize(lowerText);
+    const words = natural.WordTokenizer.prototype.tokenize(lowerText) || [];
     
     const markers = {
       positiveWords: [] as string[],

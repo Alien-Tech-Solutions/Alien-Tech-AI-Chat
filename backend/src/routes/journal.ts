@@ -9,6 +9,16 @@ import { v4 as uuidv4 } from 'uuid';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 
+// Validated journal request with required fields
+interface ValidatedJournalRequest {
+  title: string;
+  content: string;
+  tags: string[];
+  mood: string;
+  session_id: string;
+  privacy_level: 'private' | 'shared' | 'public';
+}
+
 // Export factory function for dependency injection
 export function createJournalRoutes(db: DatabaseService): Router {
   const router = Router();
@@ -20,7 +30,7 @@ export function createJournalRoutes(db: DatabaseService): Router {
 /**
  * Validate journal request
  */
-function validateJournalRequest(body: any): JournalRequest {
+function validateJournalRequest(body: any): ValidatedJournalRequest {
   if (!body.title || typeof body.title !== 'string') {
     throw createValidationError('Title is required and must be a string');
   }
@@ -48,7 +58,7 @@ function validateJournalRequest(body: any): JournalRequest {
   return {
     title: body.title.trim(),
     content: body.content.trim(),
-    tags: Array.isArray(body.tags) ? body.tags.filter(tag => typeof tag === 'string').slice(0, 10) : [],
+    tags: Array.isArray(body.tags) ? body.tags.filter((tag: unknown) => typeof tag === 'string').slice(0, 10) : [],
     mood: body.mood || 'neutral',
     session_id: body.session_id || 'default',
     privacy_level: body.privacy_level || 'private'
@@ -473,11 +483,11 @@ router.post('/export', asyncHandler(async (req: Request, res: Response) => {
         const csvHeader = 'Date,Title,Content,Mood,Tags,Word Count,Themes,Emotions\n';
         const csvRows = entries.map(entry => {
           const date = new Date(entry.created_at).toISOString().split('T')[0];
-          const content = `"${entry.content.replace(/"/g, '""')}"`;
-          const title = `"${entry.title.replace(/"/g, '""')}"`;
+          const content = `"${(entry.content || '').replace(/"/g, '""')}"`;
+          const title = `"${(entry.title || '').replace(/"/g, '""')}"`;
           const tags = `"${entry.tags.join(', ')}"`;
-          const themes = `"${entry.themes.join(', ')}"`;
-          const emotions = `"${entry.emotions.join(', ')}"`;
+          const themes = `"${(entry.themes || []).join(', ')}"`;
+          const emotions = `"${(entry.emotions || []).join(', ')}"`;
           return `${date},${title},${content},${entry.mood},${tags},${entry.word_count},${themes},${emotions}`;
         }).join('\n');
         exportData = csvHeader + csvRows;

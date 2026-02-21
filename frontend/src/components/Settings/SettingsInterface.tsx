@@ -530,7 +530,7 @@ const SettingsInterface: React.FC = () => {
                           id="import-settings"
                         />
                         <label htmlFor="import-settings">
-                          <Button variant="outline" as="span" title="Import settings">
+                          <Button variant="outline" title="Import settings" className="cursor-pointer">
                             <Upload className="w-4 h-4 mr-2" />
                             Import Settings
                           </Button>

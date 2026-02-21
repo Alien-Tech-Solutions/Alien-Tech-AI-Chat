@@ -80,10 +80,10 @@ export interface JournalEntry {
   mood: string;
   session_id: string;
   privacy_level: 'private' | 'shared' | 'public' | 'deleted';
-  word_count: number;
-  reading_time_minutes: number;
-  themes: string[];
-  emotions: string[];
+  word_count?: number;
+  reading_time_minutes?: number;
+  themes?: string[];
+  emotions?: string[];
   created_at: string;
   updated_at: string;
 }

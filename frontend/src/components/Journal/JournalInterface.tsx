@@ -45,7 +45,7 @@ const JournalInterface: React.FC = () => {
     content: '',
     tags: [] as string[],
     mood: '',
-    privacy_level: 'private' as 'private' | 'shared' | 'public',
+    privacy_level: 'private' as 'private' | 'shared' | 'public' | 'deleted',
   });
   const [analytics, setAnalytics] = useState<any>(null);
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -372,7 +372,7 @@ const JournalInterface: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           onClick={(e) => {
-                            e.stopPropagation();
+                            e?.stopPropagation();
                             handleEditEntry(entry);
                           }}
                           className="w-6 h-6 p-0"
@@ -384,7 +384,7 @@ const JournalInterface: React.FC = () => {
                           variant="ghost"
                           size="sm"
                           onClick={(e) => {
-                            e.stopPropagation();
+                            e?.stopPropagation();
                             handleDeleteEntry(entry.id);
                           }}
                           className="w-6 h-6 p-0 text-error"

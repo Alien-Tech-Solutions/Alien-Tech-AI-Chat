@@ -225,7 +225,7 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
 
         // Save conversation to database
         const conversationId = await saveConversation(
-          chatRequest.session_id,
+          chatRequest.session_id || 'default',
           chatRequest.message,
           aiResponse,
           sentimentAnalysis,
