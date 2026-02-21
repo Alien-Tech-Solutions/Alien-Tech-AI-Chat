@@ -3,6 +3,7 @@ import { DatabaseService } from '../services/DatabaseService';
 import AIService from '../services/AIService';
 import { ConversationManager } from '../services/ConversationManager';
 import { ResourceOptimizer } from '../services/ResourceOptimizer';
+import { EnhancedMemoryService } from '../services/EnhancedMemoryService';
 import { sentimentMiddleware, createSentimentMiddleware } from '../middleware/sentiment';
 import { asyncHandler, createValidationError, createNotFoundError } from '../middleware/errorHandler';
 import { endpointRateLimiter } from '../middleware/rateLimiter';
@@ -15,9 +16,10 @@ import { v4 as uuidv4 } from 'uuid';
 export default function createChatRoutes(db: DatabaseService, aiService: AIService): Router {
   const router = Router();
 
-  // Initialize ConversationManager for full context tracking
+  // Initialize services for full context tracking
   const conversationManager = new ConversationManager(db);
   const resourceOptimizer = ResourceOptimizer.getInstance();
+  const enhancedMemory = new EnhancedMemoryService(db);
 
   // Apply rate limiting to chat endpoints
   router.use(endpointRateLimiter('chat'));
@@ -722,6 +724,166 @@ router.post('/flush', asyncHandler(async (req: Request, res: Response) => {
   res.json({
     success: true,
     message: 'All pending data has been flushed',
+    timestamp: new Date().toISOString()
+  });
+}));
+
+// =============================================================================
+// USER PREFERENCES & CROSS-SESSION MEMORY ENDPOINTS
+// =============================================================================
+
+/**
+ * GET /chat/preferences - Get user memory preferences
+ */
+router.get('/preferences', asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req.query.userId as string) || 'default';
+  
+  const preferences = await enhancedMemory.getUserPreferences(userId);
+
+  res.json({
+    success: true,
+    data: preferences,
+    timestamp: new Date().toISOString()
+  });
+}));
+
+/**
+ * PUT /chat/preferences - Update user memory preferences
+ */
+router.put('/preferences', asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req.body.userId as string) || 'default';
+  const {
+    crossSessionEnabled,
+    maxCrossSessionHistory,
+    contextTokenLimit,
+    maxContextMessages,
+    autoSummarize,
+    privacyLevel,
+    summaryThreshold
+  } = req.body;
+
+  const updatedPrefs = await enhancedMemory.setUserPreferences(userId, {
+    crossSessionEnabled,
+    maxCrossSessionHistory,
+    contextTokenLimit,
+    maxContextMessages,
+    autoSummarize,
+    privacyLevel,
+    summaryThreshold
+  });
+
+  apiLogger.info('User preferences updated', { userId, crossSessionEnabled });
+
+  res.json({
+    success: true,
+    data: updatedPrefs,
+    message: 'Preferences updated successfully',
+    timestamp: new Date().toISOString()
+  });
+}));
+
+/**
+ * GET /chat/sessions/summaries - Get summaries of all past sessions
+ */
+router.get('/sessions/summaries', asyncHandler(async (req: Request, res: Response) => {
+  const excludeSessionId = req.query.excludeSessionId as string;
+  const limit = parseInt(req.query.limit as string) || 10;
+
+  const summaries = await enhancedMemory.getSessionSummaries(excludeSessionId, limit);
+
+  res.json({
+    success: true,
+    data: {
+      summaries,
+      count: summaries.length
+    },
+    timestamp: new Date().toISOString()
+  });
+}));
+
+/**
+ * GET /chat/search/all - Search across all sessions
+ */
+router.get('/search/all', asyncHandler(async (req: Request, res: Response) => {
+  const query = req.query.q as string;
+  
+  if (!query || query.trim().length === 0) {
+    throw createValidationError('Search query is required');
+  }
+
+  const excludeSessionId = req.query.excludeSessionId as string;
+  const limit = parseInt(req.query.limit as string) || 50;
+  const minRelevance = parseFloat(req.query.minRelevance as string) || 0.1;
+
+  const results = await enhancedMemory.searchAllSessions(query, {
+    excludeSessionId,
+    limit,
+    minRelevance
+  });
+
+  res.json({
+    success: true,
+    data: results,
+    query,
+    timestamp: new Date().toISOString()
+  });
+}));
+
+/**
+ * GET /chat/context/full/:sessionId - Get full context window with cross-session support
+ */
+router.get('/context/full/:sessionId', asyncHandler(async (req: Request, res: Response) => {
+  const sessionId = req.params.sessionId;
+  const userId = req.query.userId as string || 'default';
+  const includeCrossSession = req.query.crossSession !== 'false';
+  const maxTokens = parseInt(req.query.maxTokens as string) || undefined;
+  const query = req.query.query as string;
+
+  const contextWindow = await enhancedMemory.getContextWindow(sessionId, maxTokens, {
+    includeCrossSession,
+    userId,
+    query
+  });
+
+  res.json({
+    success: true,
+    data: {
+      sessionId,
+      contextWindow,
+      crossSessionIncluded: includeCrossSession,
+      config: {
+        maxContextMessages: 1000,
+        maxContextTokens: 128000,
+        crossSessionTokenBudget: 32000
+      }
+    },
+    timestamp: new Date().toISOString()
+  });
+}));
+
+/**
+ * POST /chat/preferences/toggle-cross-session - Quick toggle for cross-session access
+ */
+router.post('/preferences/toggle-cross-session', asyncHandler(async (req: Request, res: Response) => {
+  const userId = (req.body.userId as string) || 'default';
+  const enabled = req.body.enabled;
+
+  if (typeof enabled !== 'boolean') {
+    throw createValidationError('enabled must be a boolean');
+  }
+
+  const updatedPrefs = await enhancedMemory.setUserPreferences(userId, {
+    crossSessionEnabled: enabled
+  });
+
+  apiLogger.info('Cross-session access toggled', { userId, enabled });
+
+  res.json({
+    success: true,
+    data: {
+      crossSessionEnabled: updatedPrefs.crossSessionEnabled
+    },
+    message: `Cross-session memory access ${enabled ? 'enabled' : 'disabled'}`,
     timestamp: new Date().toISOString()
   });
 }));
