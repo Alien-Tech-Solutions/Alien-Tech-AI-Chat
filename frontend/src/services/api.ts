@@ -153,6 +153,11 @@ class ApiService {
     return response.data;
   }
 
+  async deleteConversationHistory(sessionId: string): Promise<ApiResponse<void>> {
+    const response = await this.api.delete(`/api/v1/chat/history/${sessionId}`);
+    return response.data;
+  }
+
   // Personality endpoints
   async getPersonality(): Promise<ApiResponse<PersonalityState>> {
     const response = await this.api.get('/api/personality');

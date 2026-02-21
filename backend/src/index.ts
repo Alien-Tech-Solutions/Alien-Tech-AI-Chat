@@ -153,7 +153,7 @@ class LackadaisicalAIServer {
     this.app.get('/', (req: Request, res: Response) => {
       res.json({
         name: 'Lackadaisical AI Chat API',
-        version: '1.0.0',
+        version: '2.0.0-alpha',
         description: 'A companion-oriented modular AI chatbot backend',
         author: 'Lackadaisical Security 2025',
         website: 'https://lackadaisical-security.com',
@@ -181,7 +181,7 @@ class LackadaisicalAIServer {
     // API documentation
     this.app.get('/api', (req: Request, res: Response) => {
       res.json({
-        api_version: '1.0.0',
+        api_version: '2.0.0-alpha',
         documentation: 'API documentation would be available here',
         endpoints: [
           'GET /health - Health check',
@@ -271,7 +271,7 @@ class LackadaisicalAIServer {
               ollama: 'up'
             }
           },
-          version: '1.0.0'
+          version: '2.0.0-alpha'
         },
         response_time_ms: Date.now() % 100
       };

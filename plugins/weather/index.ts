@@ -26,7 +26,7 @@ interface WeatherConfig {
 
 class WeatherPlugin implements Plugin {
   name = 'weather';
-  version = '1.0.0';
+  version = '2.0.0-alpha';
   description = 'Get current weather and forecasts for any location';
   author = 'Lackadaisical Security';
   permissions = ['network', 'location'];

@@ -99,7 +99,8 @@ describe('ChatInterface', () => {
 
   it('shows message count', () => {
     renderWithRouter(<ChatInterface />);
-    expect(screen.getByText('0 messages')).toBeInTheDocument();
+    // The new format shows "0 messages • Model Name"
+    expect(screen.getByText(/0 messages/)).toBeInTheDocument();
   });
 
   it('allows typing in the input field', () => {

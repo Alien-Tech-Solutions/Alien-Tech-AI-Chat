@@ -77,7 +77,7 @@ export class PersonalityService {
         await fs.writeFile(personalityFile, JSON.stringify({
           traits: this.defaultTraits,
           description: "A friendly, empathetic AI companion designed to be helpful and supportive while maintaining a casual, approachable personality.",
-          version: "1.0.0"
+          version: "2.0.0-alpha"
         }, null, 2));
       }
       

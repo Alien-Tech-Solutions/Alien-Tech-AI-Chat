@@ -38,7 +38,7 @@ router.get('/', asyncHandler(async (req: Request, res: Response) => {
         total_interactions: 0,
         mood_history: [],
         learning_data: {},
-        personality_version: '1.0.0'
+        personality_version: '2.0.0-alpha'
       };
 
       await db.updatePersonalityState(defaultState);
