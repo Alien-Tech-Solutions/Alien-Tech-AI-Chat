@@ -611,13 +611,29 @@ const SettingsInterface: React.FC = () => {
                     <div className="flex items-start space-x-3">
                       <CheckCircle className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
                       <div>
-                        <h4 className="font-medium text-success">Memory Capabilities</h4>
+                        <h4 className="font-medium text-success">System Memory Capabilities</h4>
+                        <p className="text-xs text-base-content/60 mb-2">These are the maximum limits supported by the backend:</p>
                         <ul className="text-sm text-base-content/70 mt-1 space-y-1">
                           <li>• Up to 1,000 messages per session</li>
                           <li>• 128K token context window</li>
                           <li>• 32K token cross-session budget</li>
                           <li>• Smart topic extraction and summaries</li>
                         </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Cross-Session Privacy Note */}
+                  <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
+                    <div className="flex items-start space-x-3">
+                      <AlertCircle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-medium text-warning">Privacy Note</h4>
+                        <p className="text-sm text-base-content/70 mt-1">
+                          Cross-session memory allows the AI to reference previous conversations. 
+                          All data remains local on your device. Enable this feature only if you want 
+                          the AI to maintain context across sessions.
+                        </p>
                       </div>
                     </div>
                   </div>

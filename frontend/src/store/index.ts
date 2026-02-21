@@ -148,7 +148,7 @@ const initialState: AppState & {
   // Enhanced Memory
   memoryPreferences: null,
   sessionSummaries: [],
-  crossSessionEnabled: true, // Enabled by default for session continuity
+  crossSessionEnabled: false, // Opt-in for privacy - users must explicitly enable
 };
 
 export const useAppStore = create<AppStore>()(
