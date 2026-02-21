@@ -550,7 +550,7 @@ export class EnhancedMemoryService {
   /**
    * Build context window from database with cross-session support
    */
-  private async buildContextWindow(sessionId: string, maxTokens: number, options?: {
+  public async buildContextWindow(sessionId: string, maxTokens: number, options?: {
     includeCrossSession?: boolean;
     maxCrossSessionHistory?: number;
     query?: string;

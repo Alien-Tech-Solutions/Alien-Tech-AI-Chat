@@ -32,6 +32,7 @@ import createChatRoutes from './routes/chat';
 import sessionRoutes, { createSessionRoutes } from './routes/sessions';
 import contextRoutes, { createContextRoutes } from './routes/context';
 import authRoutes from './routes/auth';
+import modelRoutes from './routes/models';
 import AIService from './services/AIService';
 
 // Import WebSocket handler
@@ -145,6 +146,7 @@ class LackadaisicalAIServer {
     this.app.use('/api/plugins', pluginRoutes);
     this.app.use('/api/companion', companionRoutesWithDeps);
     this.app.use('/api/sessions', sessionRoutesWithDeps);
+    this.app.use('/api/models', modelRoutes);
     this.app.use('/api', contextRoutesWithDeps);
 
     // Root endpoint
