@@ -198,7 +198,7 @@ router.post('/refresh', authRateLimiter, asyncHandler(async (req: Request, res: 
 /**
  * POST /auth/logout - Logout user
  */
-router.post('/logout', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.post('/logout', authRateLimiter, requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.userId;
 
   if (userId) {
@@ -220,7 +220,7 @@ router.post('/logout', requireAuth, asyncHandler(async (req: AuthenticatedReques
 /**
  * GET /auth/me - Get current user info
  */
-router.get('/me', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.get('/me', authRateLimiter, requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.userId;
 
   if (!userId) {
@@ -248,7 +248,7 @@ router.get('/me', requireAuth, asyncHandler(async (req: AuthenticatedRequest, re
 /**
  * POST /auth/change-password - Change user password
  */
-router.post('/change-password', requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+router.post('/change-password', authRateLimiter, requireAuth, asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const { currentPassword, newPassword } = req.body;
   const userId = req.user?.userId;
 
