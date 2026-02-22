@@ -350,21 +350,44 @@ export class BackupService {
 
   /**
    * Export database (PostgreSQL/MySQL)
+   * 
+   * NOTE: For PostgreSQL/MySQL, this requires pg_dump or mysqldump to be installed
+   * on the system. This is not implemented for automated backups currently.
+   * 
+   * For production PostgreSQL/MySQL backups, use native database backup tools:
+   * - PostgreSQL: pg_dump, pg_basebackup
+   * - MySQL: mysqldump, mysqlpump, xtrabackup
+   * 
+   * This method is reserved for future implementation or can be overridden.
    */
   private async exportDatabase(outputPath: string, compress: boolean): Promise<void> {
-    // This would use pg_dump or mysqldump
-    // Implementation depends on having these tools installed
-    logger.warn('Database export for PostgreSQL/MySQL not yet fully implemented');
-    throw new Error('Database export for non-SQLite databases requires external tools');
+    const dbType = config.database.type;
+    logger.warn(`Automated backup for ${dbType} requires native database tools (pg_dump/mysqldump)`);
+    throw new Error(
+      `Automated database export for ${dbType} is not yet implemented. ` +
+      `Please use native backup tools: ` +
+      `PostgreSQL: pg_dump | MySQL: mysqldump`
+    );
   }
 
   /**
    * Import database (PostgreSQL/MySQL)
+   * 
+   * NOTE: For PostgreSQL/MySQL, this requires psql or mysql client to be installed.
+   * This is not implemented for automated restores currently.
+   * 
+   * For production PostgreSQL/MySQL restores, use native database restore tools:
+   * - PostgreSQL: psql, pg_restore
+   * - MySQL: mysql client
    */
   private async importDatabase(inputPath: string, compressed: boolean): Promise<void> {
-    // This would use psql or mysql client
-    logger.warn('Database import for PostgreSQL/MySQL not yet fully implemented');
-    throw new Error('Database import for non-SQLite databases requires external tools');
+    const dbType = config.database.type;
+    logger.warn(`Automated restore for ${dbType} requires native database tools (psql/mysql)`);
+    throw new Error(
+      `Automated database import for ${dbType} is not yet implemented. ` +
+      `Please use native restore tools: ` +
+      `PostgreSQL: psql/pg_restore | MySQL: mysql`
+    );
   }
 
   /**

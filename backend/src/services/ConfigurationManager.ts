@@ -186,8 +186,8 @@ export class ConfigurationManager extends EventEmitter {
       },
       
       security: {
-        jwtSecret: process.env.JWT_SECRET || 'INSECURE_DEFAULT_SECRET_CHANGE_IN_PRODUCTION_' + Math.random(),
-        sessionSecret: process.env.SESSION_SECRET || 'INSECURE_DEFAULT_SECRET_CHANGE_IN_PRODUCTION_' + Math.random(),
+        jwtSecret: this.getSecretOrThrow('JWT_SECRET', process.env.JWT_SECRET),
+        sessionSecret: this.getSecretOrThrow('SESSION_SECRET', process.env.SESSION_SECRET),
         rateLimitWindowMs: process.env.RATE_LIMIT_WINDOW_MS ? parseInt(process.env.RATE_LIMIT_WINDOW_MS) : 900000,
         rateLimitMaxRequests: process.env.RATE_LIMIT_MAX_REQUESTS ? parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) : 100,
         enableHelmet: process.env.ENABLE_HELMET !== 'false',
@@ -230,6 +230,28 @@ export class ConfigurationManager extends EventEmitter {
         fastMode: process.env.FAST_MODE === 'true'
       }
     };
+  }
+
+  /**
+   * Get secret from environment or throw error in production
+   */
+  private getSecretOrThrow(name: string, value: string | undefined): string {
+    if (!value || value.length < 32) {
+      const env = process.env.NODE_ENV || 'development';
+      
+      if (env === 'production') {
+        throw new Error(
+          `${name} must be set in production environment and be at least 32 characters. ` +
+          `Generate a secure secret with: openssl rand -base64 32`
+        );
+      }
+      
+      // In development/test, generate a deterministic secret to avoid session invalidation
+      logger.warn(`${name} not set or too short, using development default`);
+      return `dev_${name}_${env}_default_secret_key_12345678`;
+    }
+    
+    return value;
   }
 
   /**
@@ -300,35 +322,43 @@ export class ConfigurationManager extends EventEmitter {
   }
 
   /**
-   * Watch configuration file for changes
+   * Watch configuration file for changes (async)
    */
   async watch(): Promise<void> {
     if (this.isWatching) return;
 
+    this.isWatching = true;
+    logger.info('Configuration watcher started');
+
     try {
       const configDir = path.dirname(this.configPath);
       
-      // Watch for file changes
-      const watcher = fs.watch(configDir, { persistent: false });
-      
-      for await (const event of watcher) {
-        if (event.filename && (event.filename.endsWith('.env') || event.filename.endsWith('.env.local'))) {
-          logger.info('Configuration file changed, reloading...');
+      // Start watching for file changes in background
+      (async () => {
+        try {
+          const watcher = fs.watch(configDir, { persistent: false });
           
-          try {
-            await this.reload();
-            this.emit('reloaded', this.config);
-          } catch (error) {
-            logger.error('Failed to reload configuration:', error);
-            this.emit('error', error);
+          for await (const event of watcher) {
+            if (event.filename && (event.filename.endsWith('.env') || event.filename.endsWith('.env.local'))) {
+              logger.info('Configuration file changed, reloading...');
+              
+              try {
+                await this.reload();
+                this.emit('reloaded', this.config);
+              } catch (error) {
+                logger.error('Failed to reload configuration:', error);
+                this.emit('error', error);
+              }
+            }
           }
+        } catch (error) {
+          logger.error('Configuration watcher error:', error);
+          this.isWatching = false;
         }
-      }
-      
-      this.isWatching = true;
-      logger.info('Configuration watcher started');
+      })();
     } catch (error) {
       logger.error('Failed to start configuration watcher:', error);
+      this.isWatching = false;
     }
   }
 
