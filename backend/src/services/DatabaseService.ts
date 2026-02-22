@@ -98,59 +98,393 @@ class SQLiteAdapter implements IDatabaseAdapter {
   }
 }
 
-// PostgreSQL implementation (placeholder for now)
+// PostgreSQL implementation using pg driver
 class PostgreSQLAdapter implements IDatabaseAdapter {
+  private pool: any = null;
+
   async initialize(): Promise<void> {
-    dbLogger.info('PostgreSQL adapter - not yet implemented');
-    throw new Error('PostgreSQL support coming soon');
+    try {
+      const { Pool } = await import('pg');
+      
+      this.pool = new Pool({
+        host: config.database.host || 'localhost',
+        port: config.database.port || 5432,
+        database: config.database.name || 'lackadaisical_chat',
+        user: config.database.username,
+        password: config.database.password,
+        ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
+        min: config.database.poolMin || 2,
+        max: config.database.poolMax || 10
+      });
+
+      // Test connection
+      const client = await this.pool.connect();
+      await client.query('SELECT NOW()');
+      client.release();
+
+      dbLogger.info('PostgreSQL database initialized:', {
+        host: config.database.host,
+        database: config.database.name
+      });
+      
+      // Run migrations on initialization
+      await this.runMigrations();
+    } catch (error) {
+      dbLogger.error('Failed to initialize PostgreSQL database:', error);
+      throw error;
+    }
   }
 
   async close(): Promise<void> {
-    dbLogger.info('PostgreSQL connection closed');
+    if (this.pool) {
+      await this.pool.end();
+      this.pool = null;
+      dbLogger.info('PostgreSQL connection pool closed');
+    }
   }
 
   async executeQuery<T = any>(query: string, params: any[] = []): Promise<QueryResult<T>> {
-    throw new Error('PostgreSQL support coming soon');
+    if (!this.pool) throw new Error('Database not initialized');
+    
+    try {
+      // Convert SQLite ? placeholders to PostgreSQL $1, $2, etc.
+      let pgQuery = query;
+      let paramIndex = 1;
+      pgQuery = pgQuery.replace(/\?/g, () => `$${paramIndex++}`);
+      
+      const result = await this.pool.query(pgQuery, params);
+      return { data: result.rows as T };
+    } catch (error) {
+      dbLogger.error('PostgreSQL query failed:', { query, error });
+      throw error;
+    }
   }
 
   async executeStatement(query: string, params: any[] = []): Promise<QueryResult<void>> {
-    throw new Error('PostgreSQL support coming soon');
+    if (!this.pool) throw new Error('Database not initialized');
+    
+    try {
+      // Convert SQLite ? placeholders to PostgreSQL $1, $2, etc.
+      let pgQuery = query;
+      let paramIndex = 1;
+      pgQuery = pgQuery.replace(/\?/g, () => `$${paramIndex++}`);
+      
+      const result = await this.pool.query(pgQuery, params);
+      return {
+        data: undefined,
+        affected_rows: result.rowCount || 0,
+        last_insert_id: result.rows[0]?.id
+      };
+    } catch (error) {
+      dbLogger.error('PostgreSQL statement failed:', { query, error });
+      throw error;
+    }
   }
 
   transaction<T>(fn: () => T): () => T {
-    throw new Error('PostgreSQL support coming soon');
+    // PostgreSQL transactions require async/await pattern
+    // Wrapping in a function that manages BEGIN/COMMIT/ROLLBACK
+    return async () => {
+      const client = await this.pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result = await fn();
+        await client.query('COMMIT');
+        return result;
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    } as any;
   }
 
   async runMigrations(): Promise<void> {
-    throw new Error('PostgreSQL support coming soon');
+    if (!this.pool) throw new Error('Database not initialized');
+    
+    try {
+      dbLogger.info('Running PostgreSQL migrations...');
+      
+      // Convert SQLite schema to PostgreSQL
+      const migrations = `
+        CREATE TABLE IF NOT EXISTS conversations (
+          id SERIAL PRIMARY KEY,
+          session_id TEXT NOT NULL DEFAULT 'default',
+          user_message TEXT,
+          ai_response TEXT,
+          timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          sentiment_score REAL DEFAULT 0.0,
+          sentiment_label TEXT DEFAULT 'neutral',
+          mood_impact REAL DEFAULT 0.0,
+          context_tags JSONB DEFAULT '[]',
+          message_type TEXT DEFAULT 'chat',
+          tokens_used INTEGER DEFAULT 0,
+          response_time_ms INTEGER DEFAULT 0,
+          model_used TEXT,
+          plugin_data JSONB DEFAULT '{}',
+          metadata JSONB DEFAULT '{}',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE INDEX IF NOT EXISTS idx_conversations_session_id ON conversations(session_id);
+        CREATE INDEX IF NOT EXISTS idx_conversations_timestamp ON conversations(timestamp);
+        
+        CREATE TABLE IF NOT EXISTS sessions (
+          id TEXT PRIMARY KEY,
+          name TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          context_summary TEXT,
+          message_count INTEGER DEFAULT 0
+        );
+        
+        CREATE TABLE IF NOT EXISTS personality_state (
+          id INTEGER PRIMARY KEY DEFAULT 1,
+          session_id TEXT DEFAULT 'default',
+          name TEXT NOT NULL DEFAULT 'Lacky',
+          static_traits JSONB NOT NULL DEFAULT '[]',
+          traits JSONB DEFAULT '{}',
+          current_mood JSONB DEFAULT '{}',
+          energy_level INTEGER DEFAULT 75,
+          empathy_level INTEGER DEFAULT 80,
+          humor_level INTEGER DEFAULT 70,
+          curiosity_level INTEGER DEFAULT 85,
+          patience_level INTEGER DEFAULT 90,
+          conversation_count INTEGER DEFAULT 0,
+          total_interactions INTEGER DEFAULT 0,
+          last_interaction TIMESTAMP,
+          mood_history JSONB DEFAULT '[]',
+          learning_data JSONB DEFAULT '{}',
+          personality_version TEXT DEFAULT '2.0.0-alpha',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          CHECK (id = 1)
+        );
+        
+        INSERT INTO personality_state (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+        
+        CREATE TABLE IF NOT EXISTS journal_entries (
+          id SERIAL PRIMARY KEY,
+          session_id TEXT,
+          entry_text TEXT NOT NULL,
+          mood_snapshot JSONB DEFAULT '{}',
+          sentiment_analysis JSONB DEFAULT '{}',
+          reflective_prompts JSONB DEFAULT '[]',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        
+        CREATE TABLE IF NOT EXISTS plugin_states (
+          plugin_name TEXT PRIMARY KEY,
+          enabled BOOLEAN DEFAULT true,
+          config JSONB DEFAULT '{}',
+          state_data JSONB DEFAULT '{}',
+          last_used TIMESTAMP,
+          usage_count INTEGER DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `;
+      
+      await this.pool.query(migrations);
+      dbLogger.info('PostgreSQL migrations completed successfully');
+    } catch (error) {
+      dbLogger.error('PostgreSQL migration failed:', error);
+      throw error;
+    }
   }
 }
 
-// MySQL implementation (placeholder for now)
+// MySQL implementation using mysql2 driver
 class MySQLAdapter implements IDatabaseAdapter {
+  private pool: any = null;
+
   async initialize(): Promise<void> {
-    dbLogger.info('MySQL adapter - not yet implemented');
-    throw new Error('MySQL support coming soon');
+    try {
+      const mysql = await import('mysql2/promise');
+      
+      this.pool = mysql.createPool({
+        host: config.database.host || 'localhost',
+        port: config.database.port || 3306,
+        database: config.database.name || 'lackadaisical_chat',
+        user: config.database.username,
+        password: config.database.password,
+        ssl: config.database.ssl ? { rejectUnauthorized: false } : undefined,
+        waitForConnections: true,
+        connectionLimit: config.database.poolMax || 10,
+        queueLimit: 0
+      });
+
+      // Test connection
+      const connection = await this.pool.getConnection();
+      await connection.ping();
+      connection.release();
+
+      dbLogger.info('MySQL database initialized:', {
+        host: config.database.host,
+        database: config.database.name
+      });
+      
+      // Run migrations on initialization
+      await this.runMigrations();
+    } catch (error) {
+      dbLogger.error('Failed to initialize MySQL database:', error);
+      throw error;
+    }
   }
 
   async close(): Promise<void> {
-    dbLogger.info('MySQL connection closed');
+    if (this.pool) {
+      await this.pool.end();
+      this.pool = null;
+      dbLogger.info('MySQL connection pool closed');
+    }
   }
 
   async executeQuery<T = any>(query: string, params: any[] = []): Promise<QueryResult<T>> {
-    throw new Error('MySQL support coming soon');
+    if (!this.pool) throw new Error('Database not initialized');
+    
+    try {
+      const [rows] = await this.pool.execute(query, params);
+      return { data: rows as T };
+    } catch (error) {
+      dbLogger.error('MySQL query failed:', { query, error });
+      throw error;
+    }
   }
 
   async executeStatement(query: string, params: any[] = []): Promise<QueryResult<void>> {
-    throw new Error('MySQL support coming soon');
+    if (!this.pool) throw new Error('Database not initialized');
+    
+    try {
+      const [result]: any = await this.pool.execute(query, params);
+      return {
+        data: undefined,
+        affected_rows: result.affectedRows || 0,
+        last_insert_id: result.insertId
+      };
+    } catch (error) {
+      dbLogger.error('MySQL statement failed:', { query, error });
+      throw error;
+    }
   }
 
   transaction<T>(fn: () => T): () => T {
-    throw new Error('MySQL support coming soon');
+    // MySQL transactions require connection management
+    return async () => {
+      const connection = await this.pool.getConnection();
+      try {
+        await connection.beginTransaction();
+        const result = await fn();
+        await connection.commit();
+        return result;
+      } catch (error) {
+        await connection.rollback();
+        throw error;
+      } finally {
+        connection.release();
+      }
+    } as any;
   }
 
   async runMigrations(): Promise<void> {
-    throw new Error('MySQL support coming soon');
+    if (!this.pool) throw new Error('Database not initialized');
+    
+    try {
+      dbLogger.info('Running MySQL migrations...');
+      
+      // MySQL schema with appropriate data types
+      const migrations = [
+        `CREATE TABLE IF NOT EXISTS conversations (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          session_id VARCHAR(255) NOT NULL DEFAULT 'default',
+          user_message TEXT,
+          ai_response TEXT,
+          timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+          sentiment_score FLOAT DEFAULT 0.0,
+          sentiment_label VARCHAR(50) DEFAULT 'neutral',
+          mood_impact FLOAT DEFAULT 0.0,
+          context_tags JSON,
+          message_type VARCHAR(50) DEFAULT 'chat',
+          tokens_used INT DEFAULT 0,
+          response_time_ms INT DEFAULT 0,
+          model_used VARCHAR(255),
+          plugin_data JSON,
+          metadata JSON,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_session_id (session_id),
+          INDEX idx_timestamp (timestamp)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+        
+        `CREATE TABLE IF NOT EXISTS sessions (
+          id VARCHAR(255) PRIMARY KEY,
+          name VARCHAR(255),
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          last_active DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          context_summary TEXT,
+          message_count INT DEFAULT 0
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+        
+        `CREATE TABLE IF NOT EXISTS personality_state (
+          id INT PRIMARY KEY DEFAULT 1,
+          session_id VARCHAR(255) DEFAULT 'default',
+          name VARCHAR(255) NOT NULL DEFAULT 'Lacky',
+          static_traits JSON,
+          traits JSON,
+          current_mood JSON,
+          energy_level INT DEFAULT 75,
+          empathy_level INT DEFAULT 80,
+          humor_level INT DEFAULT 70,
+          curiosity_level INT DEFAULT 85,
+          patience_level INT DEFAULT 90,
+          conversation_count INT DEFAULT 0,
+          total_interactions INT DEFAULT 0,
+          last_interaction DATETIME,
+          mood_history JSON,
+          learning_data JSON,
+          personality_version VARCHAR(50) DEFAULT '2.0.0-alpha',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          last_updated DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          CHECK (id = 1)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+        
+        `INSERT IGNORE INTO personality_state (id) VALUES (1)`,
+        
+        `CREATE TABLE IF NOT EXISTS journal_entries (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          session_id VARCHAR(255),
+          entry_text TEXT NOT NULL,
+          mood_snapshot JSON,
+          sentiment_analysis JSON,
+          reflective_prompts JSON,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+        
+        `CREATE TABLE IF NOT EXISTS plugin_states (
+          plugin_name VARCHAR(255) PRIMARY KEY,
+          enabled BOOLEAN DEFAULT TRUE,
+          config JSON,
+          state_data JSON,
+          last_used DATETIME,
+          usage_count INT DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+      ];
+      
+      for (const migration of migrations) {
+        await this.pool.query(migration);
+      }
+      
+      dbLogger.info('MySQL migrations completed successfully');
+    } catch (error) {
+      dbLogger.error('MySQL migration failed:', error);
+      throw error;
+    }
   }
 }
 
