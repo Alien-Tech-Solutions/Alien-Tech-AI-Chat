@@ -113,8 +113,8 @@ class PostgreSQLAdapter implements IDatabaseAdapter {
         user: config.database.username,
         password: config.database.password,
         ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
-        min: config.database.poolMin || 2,
-        max: config.database.poolMax || 10
+        min: config.database.connectionPool?.min || 2,
+        max: config.database.connectionPool?.max || 10
       });
 
       // Test connection
@@ -184,7 +184,7 @@ class PostgreSQLAdapter implements IDatabaseAdapter {
   transaction<T>(fn: () => T): () => T {
     // PostgreSQL transactions require async/await pattern
     // Wrapping in a function that manages BEGIN/COMMIT/ROLLBACK
-    return async () => {
+    const transactionFn = async () => {
       const client = await this.pool.connect();
       try {
         await client.query('BEGIN');
@@ -197,7 +197,8 @@ class PostgreSQLAdapter implements IDatabaseAdapter {
       } finally {
         client.release();
       }
-    } as any;
+    };
+    return transactionFn as any;
   }
 
   async runMigrations(): Promise<void> {
@@ -313,7 +314,7 @@ class MySQLAdapter implements IDatabaseAdapter {
         password: config.database.password,
         ssl: config.database.ssl ? { rejectUnauthorized: false } : undefined,
         waitForConnections: true,
-        connectionLimit: config.database.poolMax || 10,
+        connectionLimit: config.database.connectionPool?.max || 10,
         queueLimit: 0
       });
 
@@ -373,7 +374,7 @@ class MySQLAdapter implements IDatabaseAdapter {
 
   transaction<T>(fn: () => T): () => T {
     // MySQL transactions require connection management
-    return async () => {
+    const transactionFn = async () => {
       const connection = await this.pool.getConnection();
       try {
         await connection.beginTransaction();
@@ -386,7 +387,8 @@ class MySQLAdapter implements IDatabaseAdapter {
       } finally {
         connection.release();
       }
-    } as any;
+    };
+    return transactionFn as any;
   }
 
   async runMigrations(): Promise<void> {
