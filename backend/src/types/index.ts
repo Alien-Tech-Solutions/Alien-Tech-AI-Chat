@@ -160,11 +160,12 @@ export interface AIResponse {
   model: string;
   tokens_used?: number;
   response_time_ms: number;
+  thinkingContent?: string;
   metadata?: Record<string, any>;
 }
 
 export interface StreamChunk {
-  type: 'start' | 'content' | 'end' | 'error';
+  type: 'start' | 'content' | 'thinking' | 'end' | 'error';
   content?: string;
   metadata?: Record<string, any>;
   error?: string;
@@ -203,6 +204,9 @@ export interface ChatRequest {
   useUncensored?: boolean;
   images?: string[]; // Base64-encoded images for vision models
   attachments?: ChatAttachment[]; // Uploaded file references
+  enableThinking?: boolean; // Enable chain-of-thought / extended thinking (Ollama thinking models)
+  enableWebSearch?: boolean; // Enable web search tool augmentation
+  provider?: string; // Explicitly select AI provider
 }
 
 export interface ChatAttachment {
