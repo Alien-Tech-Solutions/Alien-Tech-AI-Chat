@@ -161,6 +161,10 @@ const DEFAULT_MODEL_OPTIONS: OllamaModelOptions = {
   stop: ['User:', 'Human:', '\n\nUser:', '\n\nHuman:', '<|system|>', '<|end|>', '<|user|>', '<|assistant|>']
 };
 
+// Context window constants for system prompt building
+const MAX_RECENT_CONTEXT_MESSAGES = 10;
+const MAX_RESPONSE_EXCERPT_LENGTH = 300;
+
 export class OllamaWrapper {
   private client: AxiosInstance;
   private baseUrl: string;
@@ -839,12 +843,12 @@ COMMUNICATION STYLE:
     // Conversation context if available
     if (conversationContext.length > 0) {
       systemPrompt += 'RECENT CONVERSATION:\n';
-      conversationContext.slice(-10).forEach((conv) => {
+      conversationContext.slice(-MAX_RECENT_CONTEXT_MESSAGES).forEach((conv) => {
         if (conv.user_message) {
           systemPrompt += `User: ${conv.user_message}\n`;
         }
         if (conv.ai_response) {
-          systemPrompt += `${name}: ${conv.ai_response.substring(0, 300)}\n`;
+          systemPrompt += `${name}: ${conv.ai_response.substring(0, MAX_RESPONSE_EXCERPT_LENGTH)}\n`;
         }
       });
       systemPrompt += '\nContinue naturally, remembering what was discussed. ';

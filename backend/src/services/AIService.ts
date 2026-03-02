@@ -11,6 +11,9 @@ import { MemoryService } from './MemoryService';
 import { EnhancedMemoryService } from './EnhancedMemoryService';
 import { PersonalityService } from './PersonalityService';
 import { analyzeSentiment } from '../middleware/sentiment_new';
+
+// Default number of past sessions to include in cross-session context
+const DEFAULT_MAX_CROSS_SESSION_HISTORY = 10;
 
 interface AIServiceOptions {
   provider?: AIProviderType;
@@ -263,7 +266,7 @@ export class AIService {
 
       const summaries = await this.enhancedMemory.getSessionSummaries(
         currentSessionId,
-        prefs.maxCrossSessionHistory || 10
+        prefs.maxCrossSessionHistory || DEFAULT_MAX_CROSS_SESSION_HISTORY
       );
 
       if (summaries.length === 0) {
