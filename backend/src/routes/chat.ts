@@ -13,6 +13,7 @@ import { config } from '../config/settings';
 import { v4 as uuidv4 } from 'uuid';
 import path from 'path';
 import fs from 'fs';
+import { promises as fsp } from 'fs';
 
 // Export a function that creates the router with dependencies
 export default function createChatRoutes(db: DatabaseService, aiService: AIService): Router {
@@ -232,9 +233,11 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
       for (const att of chatRequest.attachments) {
         if (att.mimeType.startsWith('image/')) {
           const filePath = path.join(uploadsDir, att.filename);
-          if (fs.existsSync(filePath)) {
-            const data = fs.readFileSync(filePath);
+          try {
+            const data = await fsp.readFile(filePath);
             images.push(data.toString('base64'));
+          } catch {
+            // Skip files that don't exist or can't be read
           }
         }
       }
@@ -529,22 +532,33 @@ router.get('/stream', asyncHandler(async (req: Request, res: Response) => {
   const useUncensored = req.query.useUncensored === 'true';
   const imagesParam = req.query.images as string | undefined;
 
-  // Parse images from comma-separated query param (base64 strings or file IDs)
+  // Parse images from query param (JSON-encoded array of base64 strings or file IDs)
   let streamImages: string[] | undefined;
   if (imagesParam) {
     const uploadsDir = path.resolve(__dirname, '../../uploads');
-    const parts = imagesParam.split(',');
+    let parts: string[] = [];
+    try {
+      parts = JSON.parse(imagesParam);
+      if (!Array.isArray(parts)) parts = [String(parts)];
+    } catch {
+      // Fallback: treat as a single value
+      parts = [imagesParam];
+    }
     const resolved: string[] = [];
     for (const part of parts) {
       const trimmed = part.trim();
       // If it looks like a UUID file ID, read from uploads
       if (/^[a-f0-9-]+$/.test(trimmed) && trimmed.length <= 36) {
-        const dirFiles = fs.existsSync(uploadsDir) ? fs.readdirSync(uploadsDir) : [];
-        const match = dirFiles.find(f => f.startsWith(trimmed));
-        if (match) {
-          const data = fs.readFileSync(path.join(uploadsDir, match));
-          resolved.push(data.toString('base64'));
-          continue;
+        try {
+          const dirFiles = await fsp.readdir(uploadsDir);
+          const match = dirFiles.find(f => f.startsWith(trimmed));
+          if (match) {
+            const data = await fsp.readFile(path.join(uploadsDir, match));
+            resolved.push(data.toString('base64'));
+            continue;
+          }
+        } catch {
+          // uploads dir may not exist
         }
       }
       // Otherwise treat as base64

@@ -197,20 +197,33 @@ const ChatInterface: React.FC = () => {
       addMessage(assistantMessage);
       setCurrentAssistantMessageId(assistantMessage.id);
 
-      // Use the API service for streaming (FIXED)
-      let accumulatedContent = '';
-      await api.streamMessage(
-        messageText,
-        sessionId,
-        (chunk) => {
-          if (chunk.type === 'content' && chunk.content) {
-            // Accumulate content and update the message
-            accumulatedContent += chunk.content;
-            updateAssistantMessage(assistantMessage.id, accumulatedContent);
+      // Use the API service for chat
+      if (images.length > 0) {
+        // For vision requests with images, use POST (no URL length limits)
+        const response = await api.sendMessage(
+          messageText,
+          sessionId,
+          false,
+          images,
+          attachments.length > 0 ? attachments : undefined
+        );
+        if (response.success && response.data) {
+          updateAssistantMessage(assistantMessage.id, response.data.content);
+        }
+      } else {
+        // For text-only, use streaming for better UX
+        let accumulatedContent = '';
+        await api.streamMessage(
+          messageText,
+          sessionId,
+          (chunk) => {
+            if (chunk.type === 'content' && chunk.content) {
+              accumulatedContent += chunk.content;
+              updateAssistantMessage(assistantMessage.id, accumulatedContent);
+            }
           }
-        },
-        images.length > 0 ? images : undefined
-      );
+        );
+      }
 
       setIsLoading(false);
       setCurrentAssistantMessageId(null);
