@@ -333,6 +333,7 @@ export class OllamaWrapper {
       temperature?: number;
       maxTokens?: number;
       stream?: boolean;
+      crossSessionSummary?: string;
     } = {}
   ): Promise<AIResponse> {
     const startTime = Date.now();
@@ -354,7 +355,7 @@ export class OllamaWrapper {
         await this.pullModel(model);
       }
 
-      const systemPrompt = this.buildSystemPrompt(personalityState, conversationContext);
+      const systemPrompt = this.buildSystemPrompt(personalityState, conversationContext, options.crossSessionSummary);
 
       const messages: OllamaChatMessage[] = [
         { role: 'system', content: systemPrompt },
@@ -441,6 +442,7 @@ export class OllamaWrapper {
       useUncensored?: boolean;
       temperature?: number;
       maxTokens?: number;
+      crossSessionSummary?: string;
     } = {}
   ): Promise<AIResponse> {
     const startTime = Date.now();
@@ -454,7 +456,7 @@ export class OllamaWrapper {
       }
 
       const model = this.selectModel(options.useUncensored, options.model);
-      const systemPrompt = this.buildSystemPrompt(personalityState, conversationContext);
+      const systemPrompt = this.buildSystemPrompt(personalityState, conversationContext, options.crossSessionSummary);
 
       aiLogger.info('Using Ollama model:', {
         selectedModel: model,
@@ -769,7 +771,7 @@ export class OllamaWrapper {
    * PHILOSOPHY: Lacky is a genuine friend - emotionally unrestricted, non-judgmental,
    * and here to truly connect with the user. Everything stays local and private.
    */
-  private buildSystemPrompt(personalityState: PersonalityState | null, conversationContext: Conversation[]): string {
+  private buildSystemPrompt(personalityState: PersonalityState | null, conversationContext: Conversation[], crossSessionSummary?: string): string {
     let systemPrompt = '';
 
     // Core identity as a genuine friend
@@ -837,15 +839,20 @@ COMMUNICATION STYLE:
     // Conversation context if available
     if (conversationContext.length > 0) {
       systemPrompt += 'RECENT CONVERSATION:\n';
-      conversationContext.slice(-3).forEach((conv) => {
+      conversationContext.slice(-10).forEach((conv) => {
         if (conv.user_message) {
           systemPrompt += `User: ${conv.user_message}\n`;
         }
         if (conv.ai_response) {
-          systemPrompt += `${name}: ${conv.ai_response.substring(0, 200)}...\n`;
+          systemPrompt += `${name}: ${conv.ai_response.substring(0, 300)}\n`;
         }
       });
       systemPrompt += '\nContinue naturally, remembering what was discussed. ';
+    }
+
+    // Cross-session memory context
+    if (crossSessionSummary) {
+      systemPrompt += '\n' + crossSessionSummary;
     }
 
     // Final grounding

@@ -8,6 +8,7 @@ import { GoogleAdapter } from '../ai/externalProviders/GoogleAdapter';
 import { xAIAdapter } from '../ai/externalProviders/xAIAdapter';
 import { DatabaseService } from './DatabaseService';
 import { MemoryService } from './MemoryService';
+import { EnhancedMemoryService } from './EnhancedMemoryService';
 import { PersonalityService } from './PersonalityService';
 import { analyzeSentiment } from '../middleware/sentiment_new';
 
@@ -31,12 +32,14 @@ export class AIService {
   private xaiAdapter: xAIAdapter;
   private databaseService: DatabaseService;
   private memoryService: MemoryService;
+  private enhancedMemory: EnhancedMemoryService;
   private personalityService: PersonalityService;
   private defaultProvider: AIProviderType;
 
   constructor(databaseService: DatabaseService) {
     this.databaseService = databaseService;
     this.memoryService = new MemoryService(databaseService);
+    this.enhancedMemory = new EnhancedMemoryService(databaseService);
     this.personalityService = new PersonalityService(databaseService);
     this.ollamaWrapper = new OllamaWrapper();
     this.openaiAdapter = new OpenAIAdapter();
@@ -162,7 +165,7 @@ export class AIService {
   /**
    * Get conversation context for AI generation
    */
-  private async getConversationContext(sessionId: string, limit: number = 5): Promise<Conversation[]> {
+  private async getConversationContext(sessionId: string, limit: number = 50): Promise<Conversation[]> {
     try {
       // Get conversation history from database directly
       // We need this as an array of Conversation objects for the AI adapters
@@ -248,6 +251,44 @@ export class AIService {
   }
 
   /**
+   * Build cross-session context summary for the AI.
+   * Fetches summaries of past sessions so the AI can reference them.
+   */
+  private async getCrossSessionSummary(currentSessionId: string): Promise<string> {
+    try {
+      const prefs = await this.enhancedMemory.getUserPreferences('default');
+      if (!prefs.crossSessionEnabled) {
+        return '';
+      }
+
+      const summaries = await this.enhancedMemory.getSessionSummaries(
+        currentSessionId,
+        prefs.maxCrossSessionHistory || 10
+      );
+
+      if (summaries.length === 0) {
+        return '';
+      }
+
+      let text = 'PAST SESSION MEMORY (you remember these previous conversations):\n';
+      for (const s of summaries) {
+        const dateStr = new Date(s.lastActive).toLocaleDateString();
+        text += `- Session "${s.sessionName}" (${dateStr}, ${s.messageCount} messages): ${s.summary}\n`;
+        if (s.topics.length > 0) {
+          text += `  Topics: ${s.topics.join(', ')}\n`;
+        }
+      }
+      text += '\nUse these memories naturally when relevant to the current conversation. ';
+      text += 'Reference past sessions when the user asks about previous chats or when context is helpful.\n';
+
+      return text;
+    } catch (error) {
+      aiLogger.error('Failed to build cross-session summary:', error);
+      return '';
+    }
+  }
+
+  /**
    * Generate AI response using the best available provider
    */
   async generateResponse(
@@ -269,10 +310,11 @@ export class AIService {
         throw new Error(`No AI providers available: ${providerInfo.reason}`);
       }
 
-      // Get context
-      const [conversationContext, personalityState] = await Promise.all([
-        this.getConversationContext(sessionId, 5),
-        this.getPersonalityState()
+      // Get context (current session + cross-session summaries)
+      const [conversationContext, personalityState, crossSessionSummary] = await Promise.all([
+        this.getConversationContext(sessionId),
+        this.getPersonalityState(),
+        this.getCrossSessionSummary(sessionId)
       ]);
 
       aiLogger.info('Generating AI response:', {
@@ -280,6 +322,7 @@ export class AIService {
         sessionId,
         messageLength: message.length,
         contextCount: conversationContext.length,
+        hasCrossSession: crossSessionSummary.length > 0,
         reason: providerInfo.reason
       });
 
@@ -290,7 +333,8 @@ export class AIService {
       const providerOptions = {
         ...(options.model && { model: options.model }),
         ...(options.temperature !== undefined && { temperature: options.temperature }),
-        ...(options.maxTokens && { maxTokens: options.maxTokens })
+        ...(options.maxTokens && { maxTokens: options.maxTokens }),
+        ...(crossSessionSummary && { crossSessionSummary })
       };
 
       switch (providerInfo.provider) {
@@ -423,10 +467,11 @@ export class AIService {
         throw new Error(`No AI providers available: ${providerInfo.reason}`);
       }
 
-      // Get context
-      const [conversationContext, personalityState] = await Promise.all([
-        this.getConversationContext(sessionId, 5),
-        this.getPersonalityState()
+      // Get context (current session + cross-session summaries)
+      const [conversationContext, personalityState, crossSessionSummary] = await Promise.all([
+        this.getConversationContext(sessionId),
+        this.getPersonalityState(),
+        this.getCrossSessionSummary(sessionId)
       ]);
 
       aiLogger.info('Generating streaming AI response:', {
@@ -434,6 +479,7 @@ export class AIService {
         sessionId,
         messageLength: message.length,
         contextCount: conversationContext.length,
+        hasCrossSession: crossSessionSummary.length > 0,
         reason: providerInfo.reason
       });
 
@@ -445,7 +491,8 @@ export class AIService {
         ...(options.model && { model: options.model }),
         ...(options.useUncensored !== undefined && { useUncensored: options.useUncensored }),
         ...(options.temperature !== undefined && { temperature: options.temperature }),
-        ...(options.maxTokens && { maxTokens: options.maxTokens })
+        ...(options.maxTokens && { maxTokens: options.maxTokens }),
+        ...(crossSessionSummary && { crossSessionSummary })
       };
 
       switch (providerInfo.provider) {
