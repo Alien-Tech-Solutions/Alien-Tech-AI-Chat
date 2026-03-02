@@ -5,9 +5,13 @@
 
 import { Router, Request, Response, NextFunction } from 'express';
 import { modelManager, ModelInfo, OllamaEndpoint } from '../services/ModelManager';
+import OllamaWrapper from '../ai/ollama/customWrapper';
 import { aiLogger } from '../utils/logger';
 import { optionalAuth } from '../middleware/auth';
 import { rateLimiter } from '../middleware/rateLimiter';
+
+// Shared OllamaWrapper instance for direct Ollama API access
+const ollamaWrapper = new OllamaWrapper();
 
 const router = Router();
 
@@ -431,6 +435,96 @@ router.delete('/register/:modelId', (req: Request, res: Response) => {
       success: false,
       error: `Model ${modelId} not found`
     });
+  }
+});
+
+// ==================== OLLAMA CAPABILITIES ====================
+
+/**
+ * GET /api/models/ollama/version
+ * Get the running Ollama server version
+ */
+router.get('/ollama/version', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const version = await ollamaWrapper.getVersion();
+    res.json({ success: true, data: { version } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * GET /api/models/ollama/running
+ * List models currently loaded in Ollama memory
+ */
+router.get('/ollama/running', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const models = await ollamaWrapper.getRunningModels();
+    res.json({
+      success: true,
+      data: { models, total: models.length }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/models/ollama/show
+ * Get detailed information about an Ollama model
+ */
+router.post('/ollama/show', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { model } = req.body;
+    if (!model) {
+      res.status(400).json({ success: false, error: 'model is required' });
+      return;
+    }
+    const info = await ollamaWrapper.getModelInfo(model);
+    res.json({ success: true, data: info });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/models/ollama/embed
+ * Generate embeddings using an Ollama model
+ */
+router.post('/ollama/embed', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { input, model, truncate } = req.body;
+    if (!input) {
+      res.status(400).json({ success: false, error: 'input is required' });
+      return;
+    }
+    const result = await ollamaWrapper.generateEmbeddings(input, { model, truncate });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/models/ollama/chat
+ * Direct access to the Ollama /api/chat endpoint
+ */
+router.post('/ollama/chat', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { messages, model, format, tools, options: modelOptions } = req.body;
+    if (!messages || !Array.isArray(messages)) {
+      res.status(400).json({ success: false, error: 'messages array is required' });
+      return;
+    }
+    const result = await ollamaWrapper.generateChatCompletion(messages, {
+      model,
+      format,
+      tools,
+      modelOptions
+    });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    next(error);
   }
 });
 
