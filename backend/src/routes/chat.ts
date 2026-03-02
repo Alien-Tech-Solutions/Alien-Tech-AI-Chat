@@ -91,7 +91,7 @@ async function generateAIResponse(
   enableThinking?: boolean,
   enableWebSearch?: boolean,
   provider?: string
-): Promise<{ content: string; model: string; tokens: number; responseTime: number; provider: string; thinkingContent?: string }> {
+): Promise<{ content: string; model: string; tokens: number; responseTime: number; provider: string; thinkingContent?: string; webSearchUsed?: boolean }> {
   const startTime = Date.now();
   
   try {
@@ -119,6 +119,7 @@ async function generateAIResponse(
         responseTime: result.response.response_time_ms || 0,
         provider: result.provider as string,
         thinkingContent: result.response.thinkingContent,
+        webSearchUsed: enableWebSearch === true,
       };
     } else {
       // Use regular AI generation
@@ -143,6 +144,7 @@ async function generateAIResponse(
         responseTime: result.response.response_time_ms || 0,
         provider: String(result.provider),
         thinkingContent: result.response.thinkingContent,
+        webSearchUsed: enableWebSearch === true,
       };
     }
 
@@ -554,6 +556,9 @@ router.get('/stream', asyncHandler(async (req: Request, res: Response) => {
   const message = req.query.message as string;
   const sessionId = req.query.session_id as string || 'default';
   const useUncensored = req.query.useUncensored === 'true';
+  const enableThinking = req.query.enableThinking === 'true';
+  const enableWebSearch = req.query.enableWebSearch === 'true';
+  const provider = req.query.provider as string | undefined;
   const imagesParam = req.query.images as string | undefined;
 
   // Parse images from query param (JSON-encoded array of base64 strings or file IDs)
@@ -648,7 +653,10 @@ router.get('/stream', asyncHandler(async (req: Request, res: Response) => {
         }
       },
       useUncensored,
-      streamImages
+      streamImages,
+      enableThinking,
+      enableWebSearch,
+      provider
     );
 
     // Save conversation to database with sentiment analysis
@@ -670,7 +678,8 @@ router.get('/stream', asyncHandler(async (req: Request, res: Response) => {
       tokens: result.tokens,
       responseTime: result.responseTime,
       model: result.model,
-      sentiment: sentimentAnalysis
+      sentiment: sentimentAnalysis,
+      webSearchUsed: result.webSearchUsed,
     };
     res.write(`data: ${JSON.stringify(metadata)}\n\n`);
 
