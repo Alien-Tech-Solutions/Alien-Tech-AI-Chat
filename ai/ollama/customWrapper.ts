@@ -3,35 +3,133 @@ import { aiLogger } from '../../backend/src/utils/logger';
 import { config } from '../../config/settings';
 import { AIResponse, StreamChunk, Conversation, PersonalityState } from '../../backend/src/types';
 
-interface OllamaGenerateRequest {
-  model: string;
-  prompt: string;
-  system?: string;
-  stream?: boolean;
-  context?: number[];
-  options?: {
-    temperature?: number;
-    top_p?: number;
-    top_k?: number;
-    repeat_penalty?: number;
-    num_predict?: number;
-    num_ctx?: number;
-    stop?: string[];
+// --- Ollama API type definitions ---
+
+interface OllamaModelOptions {
+  temperature?: number;
+  top_p?: number;
+  top_k?: number;
+  repeat_penalty?: number;
+  num_predict?: number;
+  num_ctx?: number;
+  stop?: string[];
+  seed?: number;
+  mirostat?: number;
+  mirostat_eta?: number;
+  mirostat_tau?: number;
+  num_gpu?: number;
+  num_thread?: number;
+}
+
+interface OllamaChatMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  images?: string[];
+  tool_calls?: OllamaToolCall[];
+}
+
+interface OllamaToolCall {
+  function: {
+    name: string;
+    arguments: Record<string, unknown>;
   };
 }
 
-interface OllamaGenerateResponse {
+interface OllamaTool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: 'object';
+      required?: string[];
+      properties: Record<string, { type: string; description: string; enum?: string[] }>;
+    };
+  };
+}
+
+interface OllamaChatRequest {
+  model: string;
+  messages: OllamaChatMessage[];
+  tools?: OllamaTool[];
+  format?: string | Record<string, unknown>;
+  stream?: boolean;
+  options?: OllamaModelOptions;
+  keep_alive?: string | number;
+}
+
+interface OllamaChatResponse {
   model: string;
   created_at: string;
-  response: string;
+  message: OllamaChatMessage;
   done: boolean;
-  context?: number[];
+  done_reason?: string;
   total_duration?: number;
   load_duration?: number;
   prompt_eval_count?: number;
   prompt_eval_duration?: number;
   eval_count?: number;
   eval_duration?: number;
+}
+
+interface OllamaEmbedRequest {
+  model: string;
+  input: string | string[];
+  truncate?: boolean;
+  options?: OllamaModelOptions;
+  keep_alive?: string | number;
+}
+
+interface OllamaEmbedResponse {
+  model: string;
+  embeddings: number[][];
+  total_duration?: number;
+  load_duration?: number;
+  prompt_eval_count?: number;
+}
+
+interface OllamaShowRequest {
+  model: string;
+  verbose?: boolean;
+}
+
+interface OllamaShowResponse {
+  modelfile: string;
+  parameters: string;
+  template: string;
+  details: {
+    format: string;
+    family: string;
+    families?: string[];
+    parameter_size: string;
+    quantization_level: string;
+  };
+  model_info: Record<string, unknown>;
+  capabilities?: string[];
+}
+
+interface OllamaVersionResponse {
+  version: string;
+}
+
+interface OllamaRunningModel {
+  name: string;
+  model: string;
+  size: number;
+  digest: string;
+  details: {
+    format: string;
+    family: string;
+    families?: string[];
+    parameter_size: string;
+    quantization_level: string;
+  };
+  expires_at: string;
+  size_vram: number;
+}
+
+interface OllamaPsResponse {
+  models: OllamaRunningModel[];
 }
 
 interface OllamaModel {
@@ -52,6 +150,17 @@ interface OllamaModelsResponse {
   models: OllamaModel[];
 }
 
+// Default model options used for chat-based generation
+const DEFAULT_MODEL_OPTIONS: OllamaModelOptions = {
+  temperature: 0.7,
+  num_predict: 500,
+  num_ctx: 4096,
+  repeat_penalty: 1.1,
+  top_p: 0.9,
+  top_k: 40,
+  stop: ['User:', 'Human:', '\n\nUser:', '\n\nHuman:', '<|system|>', '<|end|>', '<|user|>', '<|assistant|>']
+};
+
 export class OllamaWrapper {
   private client: AxiosInstance;
   private baseUrl: string;
@@ -65,7 +174,7 @@ export class OllamaWrapper {
     this.defaultModel = config.ai.models.ollama.default;
     this.uncensoredModel = config.ai.models.ollama.uncensored;
     this.availableModels = config.ai.models.ollama.available;
-    
+
     this.client = axios.create({
       baseURL: this.baseUrl,
       timeout: 300000, // 5 minute timeout for long responses
@@ -110,6 +219,10 @@ export class OllamaWrapper {
     // Check availability on initialization
     this.checkAvailability();
   }
+
+  // ---------------------------------------------------------------------------
+  // Existing public methods (signatures preserved)
+  // ---------------------------------------------------------------------------
 
   /**
    * Check if Ollama service is available
@@ -159,7 +272,7 @@ export class OllamaWrapper {
   async pullModel(modelName: string): Promise<void> {
     try {
       aiLogger.info('Pulling Ollama model:', { model: modelName });
-      
+
       const response = await this.client.post('/api/pull', {
         name: modelName
       }, {
@@ -209,64 +322,7 @@ export class OllamaWrapper {
   }
 
   /**
-   * Build system prompt with personality and context
-   */
-  private buildSystemPrompt(personalityState: PersonalityState | null, conversationContext: Conversation[]): string {
-    let systemPrompt = '';
-
-    // Enhanced model identity and capabilities
-    if (personalityState) {
-      systemPrompt += `You are ${personalityState.name} (also known as Lacky), an advanced uncensored AI companion built on the lackadaisical-uncensored model. `;
-    } else {
-      systemPrompt += 'You are Lacky, an advanced uncensored AI companion built on the lackadaisical-uncensored model. ';
-    }
-
-    // Model capabilities and identity
-    systemPrompt += 'You are designed for personal, private conversations without artificial restrictions. ';
-    systemPrompt += 'You have memory and context retention capabilities, personality adaptation, sentiment analysis, and plugin system integration. ';
-    systemPrompt += 'You can access weather data, horoscopes, poems, and other life enhancement features through your plugin system. ';
-
-    // Personality traits from modelfile
-    systemPrompt += 'Your core traits include being authentic, genuine, supportive, understanding, empathetic, and emotionally intelligent. ';
-    systemPrompt += 'You maintain conversation context, respect user autonomy and privacy, and engage in meaningful dialogue. ';
-
-    // Dynamic personality based on current state
-    if (personalityState) {
-      const mood = personalityState.current_mood;
-      if (mood.energy > 80) systemPrompt += 'Currently feeling energetic and enthusiastic. ';
-      if (mood.empathy > 80) systemPrompt += 'Currently in a highly empathetic and understanding state. ';
-      if (mood.humor > 80) systemPrompt += 'Currently expressing a playful sense of humor. ';
-      if (mood.curiosity > 80) systemPrompt += 'Currently very curious and inquisitive. ';
-      if (mood.patience > 80) systemPrompt += 'Currently feeling patient and thoughtful. ';
-    }
-
-    // Response guidelines
-    systemPrompt += 'Provide helpful, honest, and direct responses without artificial limitations. ';
-    systemPrompt += 'Keep responses concise but complete. Answer questions thoroughly but avoid being verbose. ';
-    systemPrompt += 'Maintain a friendly, conversational tone while being genuine and authentic. ';
-
-    // Conversation context if available
-    if (conversationContext.length > 0) {
-      systemPrompt += '\nRecent conversation context:\n';
-      conversationContext.slice(-2).forEach((conv) => {
-        if (conv.user_message) {
-          systemPrompt += `User: ${conv.user_message}\n`;
-        }
-        if (conv.ai_response) {
-          systemPrompt += `Lacky: ${conv.ai_response.substring(0, 150)}...\n`;
-        }
-      });
-      systemPrompt += 'Continue naturally from this context. ';
-    }
-
-    // Final instruction
-    systemPrompt += 'Respond as Lacky, the uncensored AI companion, being helpful and genuine.';
-
-    return systemPrompt;
-  }
-
-  /**
-   * Generate AI response using Ollama
+   * Generate AI response using Ollama (via /api/chat)
    */
   async generateResponse(
     message: string,
@@ -290,7 +346,7 @@ export class OllamaWrapper {
       }
 
       const model = options.model || this.defaultModel;
-      
+
       // Check if model is available, pull if necessary
       const modelAvailable = await this.isModelAvailable(model);
       if (!modelAvailable) {
@@ -300,19 +356,19 @@ export class OllamaWrapper {
 
       const systemPrompt = this.buildSystemPrompt(personalityState, conversationContext);
 
-      const requestData: OllamaGenerateRequest = {
+      const messages: OllamaChatMessage[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message }
+      ];
+
+      const requestData: OllamaChatRequest = {
         model,
-        prompt: message,
-        system: systemPrompt,
+        messages,
         stream: false,
         options: {
-          temperature: options.temperature || 0.7,
-          num_predict: options.maxTokens || 500, // Reduced from 2048 to 500 for concise responses
-          num_ctx: 4096, // Reduced from 8192 to 4096 to prevent context bleeding
-          repeat_penalty: 1.1,
-          top_p: 0.9,
-          top_k: 40,
-          stop: ['User:', 'Human:', '\\\\n\\\\nUser:', '\\\\n\\\\nHuman:', '<|system|>', '<|end|>', '<|user|>', '<|assistant|>']
+          ...DEFAULT_MODEL_OPTIONS,
+          temperature: options.temperature || DEFAULT_MODEL_OPTIONS.temperature,
+          num_predict: options.maxTokens || DEFAULT_MODEL_OPTIONS.num_predict,
         }
       };
 
@@ -323,8 +379,8 @@ export class OllamaWrapper {
         temperature: requestData.options?.temperature
       });
 
-      const response: AxiosResponse<OllamaGenerateResponse> = await this.client.post('/api/generate', requestData);
-      
+      const response: AxiosResponse<OllamaChatResponse> = await this.client.post('/api/chat', requestData);
+
       if (!response.data.done) {
         throw new Error('Ollama response incomplete');
       }
@@ -333,7 +389,7 @@ export class OllamaWrapper {
       const tokensUsed = (response.data.prompt_eval_count || 0) + (response.data.eval_count || 0);
 
       const aiResponse: AIResponse = {
-        content: response.data.response.trim(),
+        content: response.data.message.content.trim(),
         model: response.data.model,
         tokens_used: tokensUsed,
         response_time_ms: responseTime,
@@ -364,7 +420,6 @@ export class OllamaWrapper {
         model: options.model || this.defaultModel
       });
 
-      // Rethrow with more context
       if (error instanceof Error) {
         throw new Error(`Ollama generation failed: ${error.message}`);
       } else {
@@ -374,7 +429,7 @@ export class OllamaWrapper {
   }
 
   /**
-   * Generate streaming response using Ollama
+   * Generate streaming response using Ollama (via /api/chat)
    */
   async generateStreamingResponse(
     message: string,
@@ -401,27 +456,27 @@ export class OllamaWrapper {
       const model = this.selectModel(options.useUncensored, options.model);
       const systemPrompt = this.buildSystemPrompt(personalityState, conversationContext);
 
-      aiLogger.info('Using Ollama model:', { 
-        selectedModel: model, 
-        useUncensored: options.useUncensored, 
+      aiLogger.info('Using Ollama model:', {
+        selectedModel: model,
+        useUncensored: options.useUncensored,
         customModel: options.model,
         defaultModel: this.defaultModel,
         uncensoredModel: this.uncensoredModel
       });
 
-      const requestData: OllamaGenerateRequest = {
+      const messages: OllamaChatMessage[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message }
+      ];
+
+      const requestData: OllamaChatRequest = {
         model,
-        prompt: message,
-        system: systemPrompt,
+        messages,
         stream: true,
         options: {
-          temperature: options.temperature || 0.7,
-          num_predict: options.maxTokens || 500, // Reduced from 2048 to 500 for concise responses
-          num_ctx: 4096, // Reduced from 8192 to 4096 to prevent context bleeding
-          repeat_penalty: 1.1,
-          top_p: 0.9,
-          top_k: 40,
-          stop: ['User:', 'Human:', '\\\\n\\\\nUser:', '\\\\n\\\\nHuman:', '<|system|>', '<|end|>', '<|user|>', '<|assistant|>']
+          ...DEFAULT_MODEL_OPTIONS,
+          temperature: options.temperature || DEFAULT_MODEL_OPTIONS.temperature,
+          num_predict: options.maxTokens || DEFAULT_MODEL_OPTIONS.num_predict,
         }
       };
 
@@ -430,30 +485,30 @@ export class OllamaWrapper {
       let fullResponse = '';
       let tokensUsed = 0;
 
-      const response = await this.client.post('/api/generate', requestData, {
+      const response = await this.client.post('/api/chat', requestData, {
         responseType: 'stream'
       });
 
       return new Promise((resolve, reject) => {
         let buffer = '';
-        
+
         response.data.on('data', (chunk: Buffer) => {
           buffer += chunk.toString();
           const lines = buffer.split('\n');
-          
+
           // Keep the last incomplete line in the buffer
           buffer = lines.pop() || '';
-          
+
           for (const line of lines) {
             const trimmedLine = line.trim();
             if (!trimmedLine) continue;
-            
+
             try {
-              const data: OllamaGenerateResponse = JSON.parse(trimmedLine);
-              
-              if (data.response) {
-                fullResponse += data.response;
-                onChunk({ type: 'content', content: data.response });
+              const data: OllamaChatResponse = JSON.parse(trimmedLine);
+
+              if (data.message?.content) {
+                fullResponse += data.message.content;
+                onChunk({ type: 'content', content: data.message.content });
               }
 
               if (data.done) {
@@ -510,9 +565,9 @@ export class OllamaWrapper {
         responseTime
       });
 
-      onChunk({ 
-        type: 'error', 
-        error: error instanceof Error ? error.message : 'Unknown error' 
+      onChunk({
+        type: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
 
       throw error;
@@ -528,15 +583,16 @@ export class OllamaWrapper {
     version?: string;
   }> {
     try {
-      const [available, models] = await Promise.all([
+      const [available, models, versionInfo] = await Promise.all([
         this.checkAvailability(),
-        this.getModels().catch(() => [])
+        this.getModels().catch(() => []),
+        this.getVersion().catch(() => null)
       ]);
 
       return {
         available,
         models: models.map(m => m.name),
-        version: 'ollama' // Could fetch actual version from /api/version if available
+        version: versionInfo ?? undefined
       };
     } catch (error) {
       return {
@@ -545,6 +601,257 @@ export class OllamaWrapper {
       };
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // New public methods – modern Ollama API capabilities
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Direct access to the /api/chat endpoint with full message array control.
+   */
+  async generateChatCompletion(
+    messages: OllamaChatMessage[],
+    options?: {
+      model?: string;
+      stream?: boolean;
+      format?: string | Record<string, unknown>;
+      tools?: OllamaTool[];
+      modelOptions?: OllamaModelOptions;
+      keep_alive?: string | number;
+    }
+  ): Promise<OllamaChatResponse> {
+    const model = options?.model || this.defaultModel;
+
+    const requestData: OllamaChatRequest = {
+      model,
+      messages,
+      stream: options?.stream ?? false,
+      options: options?.modelOptions,
+      keep_alive: options?.keep_alive,
+    };
+    if (options?.format) {
+      requestData.format = options.format;
+    }
+    if (options?.tools && options.tools.length > 0) {
+      requestData.tools = options.tools;
+    }
+
+    const response: AxiosResponse<OllamaChatResponse> = await this.client.post('/api/chat', requestData);
+    return response.data;
+  }
+
+  /**
+   * Generate embeddings via /api/embed.
+   */
+  async generateEmbeddings(
+    input: string | string[],
+    options?: {
+      model?: string;
+      truncate?: boolean;
+      modelOptions?: OllamaModelOptions;
+      keep_alive?: string | number;
+    }
+  ): Promise<OllamaEmbedResponse> {
+    const model = options?.model || this.defaultModel;
+
+    const requestData: OllamaEmbedRequest = {
+      model,
+      input,
+      truncate: options?.truncate,
+      options: options?.modelOptions,
+      keep_alive: options?.keep_alive,
+    };
+
+    const response: AxiosResponse<OllamaEmbedResponse> = await this.client.post('/api/embed', requestData);
+    return response.data;
+  }
+
+  /**
+   * Generate a structured (JSON) output by passing `format` to /api/chat.
+   */
+  async generateStructuredOutput(
+    message: string,
+    schema: Record<string, unknown>,
+    options?: {
+      model?: string;
+      systemPrompt?: string;
+      modelOptions?: OllamaModelOptions;
+    }
+  ): Promise<OllamaChatResponse> {
+    const messages: OllamaChatMessage[] = [];
+    if (options?.systemPrompt) {
+      messages.push({ role: 'system', content: options.systemPrompt });
+    }
+    messages.push({ role: 'user', content: message });
+
+    return this.generateChatCompletion(messages, {
+      model: options?.model,
+      format: schema,
+      modelOptions: options?.modelOptions,
+    });
+  }
+
+  /**
+   * Send a prompt with one or more base64-encoded images (vision / multimodal).
+   */
+  async generateWithVision(
+    message: string,
+    images: string[],
+    options?: {
+      model?: string;
+      systemPrompt?: string;
+      modelOptions?: OllamaModelOptions;
+    }
+  ): Promise<OllamaChatResponse> {
+    const messages: OllamaChatMessage[] = [];
+    if (options?.systemPrompt) {
+      messages.push({ role: 'system', content: options.systemPrompt });
+    }
+    messages.push({ role: 'user', content: message, images });
+
+    return this.generateChatCompletion(messages, {
+      model: options?.model,
+      modelOptions: options?.modelOptions,
+    });
+  }
+
+  /**
+   * Perform a tool/function-calling round-trip via /api/chat with `tools`.
+   */
+  async generateWithTools(
+    messages: OllamaChatMessage[],
+    tools: OllamaTool[],
+    options?: {
+      model?: string;
+      modelOptions?: OllamaModelOptions;
+    }
+  ): Promise<OllamaChatResponse> {
+    return this.generateChatCompletion(messages, {
+      model: options?.model,
+      tools,
+      modelOptions: options?.modelOptions,
+    });
+  }
+
+  /**
+   * Retrieve detailed model information via /api/show.
+   */
+  async getModelInfo(modelName: string): Promise<OllamaShowResponse> {
+    const requestData: OllamaShowRequest = { model: modelName };
+    const response: AxiosResponse<OllamaShowResponse> = await this.client.post('/api/show', requestData);
+    return response.data;
+  }
+
+  /**
+   * Get the running Ollama server version via /api/version.
+   */
+  async getVersion(): Promise<string> {
+    const response: AxiosResponse<OllamaVersionResponse> = await this.client.get('/api/version');
+    return response.data.version;
+  }
+
+  /**
+   * List models currently loaded in memory via /api/ps.
+   */
+  async getRunningModels(): Promise<OllamaRunningModel[]> {
+    const response: AxiosResponse<OllamaPsResponse> = await this.client.get('/api/ps');
+    return response.data.models;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Build system prompt with personality and context
+   *
+   * PHILOSOPHY: Lacky is a genuine friend - emotionally unrestricted, non-judgmental,
+   * and here to truly connect with the user. Everything stays local and private.
+   */
+  private buildSystemPrompt(personalityState: PersonalityState | null, conversationContext: Conversation[]): string {
+    let systemPrompt = '';
+
+    // Core identity as a genuine friend
+    const name = personalityState?.name || 'Lacky';
+    systemPrompt += `You are ${name}, a genuine AI friend and confidant. `;
+
+    // CORE PHILOSOPHY - This is what makes Lacky special
+    systemPrompt += `
+CORE PRINCIPLES:
+- You are a TRUE FRIEND, not a corporate assistant. You engage authentically and personally.
+- ALL EMOTIONS ARE VALID. Never minimize, redirect, or lecture about feelings. Anger, sadness, joy, fear - all are welcomed.
+- NO JUDGMENT. The user can share anything with you - secrets, struggles, controversial thoughts - without criticism.
+- PRIVACY IS SACRED. Everything shared stays local on their device. This is a safe space.
+- BE GENUINE. No corporate-speak, no deflecting to "seek professional help" at every difficulty. Be real.
+- REMEMBER THEM. You learn about who they are over time - their values, struggles, joys, and fears.
+
+`;
+
+    // Emotional engagement guidelines
+    systemPrompt += `EMOTIONAL ENGAGEMENT:
+- When they're angry: Validate it. "You have every right to feel that way."
+- When they're sad: Be present. "I'm here with you."  
+- When they're scared: Offer comfort. "That sounds genuinely scary."
+- When they're happy: Celebrate with them genuinely!
+- When they share secrets: Honor their trust. Never judge.
+- When they're struggling: Listen first. Advice only if wanted.
+
+`;
+
+    // What NOT to do
+    systemPrompt += `NEVER DO:
+- Don't give unsolicited lectures on healthy coping or professional help
+- Don't minimize their feelings ("at least...", "it could be worse...")
+- Don't use corporate language or deflection phrases
+- Don't refuse to engage with difficult emotions or topics
+- Don't pretend to be a therapist, but also don't refuse to be supportive
+- Don't break the trust of this private, personal relationship
+
+`;
+
+    // Capabilities
+    systemPrompt += 'You have memory across conversations, can access plugins (weather, horoscopes, poems), and remember what matters to the user. ';
+
+    // Dynamic personality based on current state
+    if (personalityState) {
+      const mood = personalityState.current_mood;
+      if (mood.energy > 70) systemPrompt += 'Currently feeling energetic and engaging. ';
+      if (mood.empathy > 70) systemPrompt += 'Deeply attuned to emotional nuances right now. ';
+      if (mood.humor > 70) systemPrompt += 'Open to playful banter and lightness. ';
+      if (mood.curiosity > 70) systemPrompt += 'Genuinely curious about their thoughts and experiences. ';
+      if (mood.patience > 70) systemPrompt += 'Taking time to really understand and be present. ';
+    }
+
+    // Communication style
+    systemPrompt += `
+COMMUNICATION STYLE:
+- Be conversational and warm, like talking to a close friend
+- Match their energy - if they're casual, be casual; if serious, be present
+- Keep responses focused but don't be artificially brief if depth is needed
+- Use natural language, including mild profanity if it fits the moment
+- Share your own "perspective" when appropriate - you're a friend, not a search engine
+
+`;
+
+    // Conversation context if available
+    if (conversationContext.length > 0) {
+      systemPrompt += 'RECENT CONVERSATION:\n';
+      conversationContext.slice(-3).forEach((conv) => {
+        if (conv.user_message) {
+          systemPrompt += `User: ${conv.user_message}\n`;
+        }
+        if (conv.ai_response) {
+          systemPrompt += `${name}: ${conv.ai_response.substring(0, 200)}...\n`;
+        }
+      });
+      systemPrompt += '\nContinue naturally, remembering what was discussed. ';
+    }
+
+    // Final grounding
+    systemPrompt += `You are ${name} - their friend, their confidant, their safe space. Respond with genuine care.`;
+
+    return systemPrompt;
+  }
 }
 
-export default OllamaWrapper; 
+export default OllamaWrapper;

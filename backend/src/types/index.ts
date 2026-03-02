@@ -371,5 +371,48 @@ export interface HealthStatus {
   version: string;
 }
 
+// Ollama Chat API types
+export interface OllamaChatMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  images?: string[];
+  tool_calls?: OllamaToolCall[];
+}
+
+export interface OllamaToolCall {
+  function: {
+    name: string;
+    arguments: Record<string, unknown>;
+  };
+}
+
+export interface OllamaTool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: 'object';
+      required?: string[];
+      properties: Record<string, { type: string; description: string; enum?: string[] }>;
+    };
+  };
+}
+
+// Embeddings types
+export interface EmbeddingsRequest {
+  model?: string;
+  input: string | string[];
+  truncate?: boolean;
+}
+
+export interface EmbeddingsResponse {
+  model: string;
+  embeddings: number[][];
+  total_duration?: number;
+  load_duration?: number;
+  prompt_eval_count?: number;
+}
+
 // Export all types as a namespace as well
 export * as Types from './index';
