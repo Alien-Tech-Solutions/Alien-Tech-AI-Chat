@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bot, User, Copy, Check, MoreVertical } from 'lucide-react';
+import { Bot, User, Copy, Check, MoreVertical, FileText, Download, Wrench } from 'lucide-react';
 import { Message } from '../../types';
 import Button from '../ui/Button';
 
@@ -79,6 +79,79 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
               {message.tokens && <span>{message.tokens} tokens</span>}
               {message.responseTime && <span>{message.responseTime}ms</span>}
             </div>
+
+            {/* Image Attachments */}
+            {message.images && message.images.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {message.images.map((img, idx) => (
+                  <img
+                    key={idx}
+                    src={img.startsWith('data:') || img.startsWith('http') ? img : `data:image/jpeg;base64,${img}`}
+                    alt={`Attachment ${idx + 1}`}
+                    className="max-w-xs max-h-48 rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                    onClick={() => window.open(img.startsWith('data:') || img.startsWith('http') ? img : `data:image/jpeg;base64,${img}`, '_blank')}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* File Attachments */}
+            {message.attachments && message.attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {message.attachments.map((att) => (
+                  <a
+                    key={att.id}
+                    href={att.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-2 bg-base-300/50 rounded-lg hover:bg-base-300 transition-colors text-sm"
+                  >
+                    <FileText className="w-4 h-4 flex-shrink-0" />
+                    <span className="truncate max-w-[150px]">{att.originalName}</span>
+                    <span className="text-xs opacity-60">
+                      {(att.size / 1024).toFixed(1)} KB
+                    </span>
+                  </a>
+                ))}
+              </div>
+            )}
+
+            {/* Tool Call Results */}
+            {message.toolCalls && message.toolCalls.length > 0 && (
+              <div className="mt-2 space-y-2">
+                {message.toolCalls.map((tool, idx) => (
+                  <div key={idx} className="flex items-start gap-2 p-2 bg-info/10 border border-info/20 rounded-lg text-sm">
+                    <Wrench className="w-4 h-4 mt-0.5 text-info flex-shrink-0" />
+                    <div>
+                      <div className="font-medium text-info">{tool.name}</div>
+                      {tool.result && (
+                        <div className="mt-1 text-base-content/80 whitespace-pre-wrap">{tool.result}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Generated Files */}
+            {message.generatedFiles && message.generatedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2">
+                {message.generatedFiles.map((file) => (
+                  <a
+                    key={file.id}
+                    href={file.url}
+                    download={file.filename}
+                    className="flex items-center gap-2 px-3 py-2 bg-success/10 border border-success/20 rounded-lg hover:bg-success/20 transition-colors text-sm"
+                  >
+                    <Download className="w-4 h-4 text-success flex-shrink-0" />
+                    <span className="truncate max-w-[150px]">{file.filename}</span>
+                    <span className="text-xs opacity-60">
+                      {(file.size / 1024).toFixed(1)} KB
+                    </span>
+                  </a>
+                ))}
+              </div>
+            )}
 
             {/* Sentiment Analysis */}
             {message.sentiment && (

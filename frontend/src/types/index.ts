@@ -16,6 +16,10 @@ export interface Message {
   tokens?: number;
   responseTime?: number;
   sentiment?: SentimentAnalysis;
+  images?: string[];
+  attachments?: ChatAttachment[];
+  toolCalls?: ToolCallResult[];
+  generatedFiles?: GeneratedFile[];
 }
 
 export interface ChatSession {
@@ -32,6 +36,29 @@ export interface SentimentAnalysis {
   score: number;
   label: 'positive' | 'negative' | 'neutral';
   confidence: number;
+}
+
+export interface ChatAttachment {
+  id: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+}
+
+export interface ToolCallResult {
+  name: string;
+  arguments: Record<string, unknown>;
+  result?: string;
+}
+
+export interface GeneratedFile {
+  id: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  url: string;
 }
 
 // Personality types
