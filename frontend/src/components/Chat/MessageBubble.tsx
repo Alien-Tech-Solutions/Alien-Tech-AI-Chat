@@ -86,10 +86,10 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 {message.images.map((img, idx) => (
                   <img
                     key={idx}
-                    src={img.startsWith('data:') || img.startsWith('http') ? img : `data:image/jpeg;base64,${img}`}
+                    src={img.startsWith('data:') || img.startsWith('http') ? img : `data:image/png;base64,${img}`}
                     alt={`Attachment ${idx + 1}`}
                     className="max-w-xs max-h-48 rounded-lg object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => window.open(img.startsWith('data:') || img.startsWith('http') ? img : `data:image/jpeg;base64,${img}`, '_blank')}
+                    onClick={() => window.open(img.startsWith('data:') || img.startsWith('http') ? img : `data:image/png;base64,${img}`, '_blank')}
                   />
                 ))}
               </div>

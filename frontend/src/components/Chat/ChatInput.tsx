@@ -134,7 +134,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
                   <img src={att.preview} alt={att.file.name} className="w-10 h-10 object-cover rounded" />
                 ) : (
                   <div className="w-10 h-10 bg-base-300 rounded flex items-center justify-center text-xs">
-                    {att.file.name.split('.').pop()?.toUpperCase()}
+                    {att.file.name.split('.').pop()?.toUpperCase() || 'FILE'}
                   </div>
                 )}
                 <div className="max-w-[120px]">
