@@ -20,6 +20,8 @@ export interface Message {
   attachments?: ChatAttachment[];
   toolCalls?: ToolCallResult[];
   generatedFiles?: GeneratedFile[];
+  thinking?: string;        // Chain-of-thought reasoning content
+  webSearchUsed?: boolean;  // Whether web search was used for this message
 }
 
 export interface ChatSession {

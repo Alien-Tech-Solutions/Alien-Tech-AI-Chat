@@ -84,7 +84,7 @@ const ChatInterface: React.FC = () => {
   const [currentAssistantMessageId, setCurrentAssistantMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  
+
   // Enhanced UI state
   const [showQuickSettings, setShowQuickSettings] = useState(false);
   const [selectedModel, setSelectedModel] = useState('ollama-default');
@@ -99,6 +99,13 @@ const ChatInterface: React.FC = () => {
     uploading?: boolean;
     uploaded?: ChatAttachment;
   }>>([]);
+
+  // Feature toggles
+  const [enableThinking, setEnableThinking] = useState(false);
+  const [enableWebSearch, setEnableWebSearch] = useState(false);
+
+  // Accumulated thinking content for streaming
+  const accumulatedThinkingRef = React.useRef('');
 
   // Handle pre-filled message from companion dashboard
   useEffect(() => {
@@ -196,6 +203,17 @@ const ChatInterface: React.FC = () => {
 
       addMessage(assistantMessage);
       setCurrentAssistantMessageId(assistantMessage.id);
+      accumulatedThinkingRef.current = '';
+
+      // Build options
+      const chatOptions = {
+        enableThinking,
+        enableWebSearch,
+        provider: selectedModel.startsWith('gpt') ? 'openai'
+          : selectedModel.startsWith('claude') ? 'anthropic'
+          : selectedModel.startsWith('gemini') ? 'google'
+          : 'ollama',
+      };
 
       // Use the API service for chat
       if (images.length > 0) {
@@ -205,7 +223,8 @@ const ChatInterface: React.FC = () => {
           sessionId,
           false,
           images,
-          attachments.length > 0 ? attachments : undefined
+          attachments.length > 0 ? attachments : undefined,
+          chatOptions
         );
         if (response.success && response.data) {
           updateAssistantMessage(assistantMessage.id, response.data.content);
@@ -213,16 +232,32 @@ const ChatInterface: React.FC = () => {
       } else {
         // For text-only, use streaming for better UX
         let accumulatedContent = '';
-        await api.streamMessage(
+        const finalMessage = await api.streamMessage(
           messageText,
           sessionId,
           (chunk) => {
-            if (chunk.type === 'content' && chunk.content) {
+            if (chunk.type === 'thinking' && chunk.content) {
+              accumulatedThinkingRef.current += chunk.content;
+            } else if (chunk.type === 'content' && chunk.content) {
               accumulatedContent += chunk.content;
               updateAssistantMessage(assistantMessage.id, accumulatedContent);
             }
-          }
+          },
+          undefined,
+          chatOptions
         );
+        // Apply final metadata (thinking, webSearchUsed) from the resolved message
+        if (finalMessage?.data) {
+          const updates: Partial<Message> = { content: accumulatedContent };
+          if (accumulatedThinkingRef.current) updates.thinking = accumulatedThinkingRef.current;
+          if (finalMessage.data.webSearchUsed) updates.webSearchUsed = true;
+          // Use store's updateMessage if available, otherwise a direct store set
+          const { messages: currentMsgs, setMessages } = useAppStore.getState();
+          const updated = currentMsgs.map(m =>
+            m.id === assistantMessage.id ? { ...m, ...updates } : m
+          );
+          setMessages(updated);
+        }
       }
 
       setIsLoading(false);
@@ -640,6 +675,10 @@ const ChatInterface: React.FC = () => {
             onFileUpload={handleFileUpload}
             pendingAttachments={pendingAttachments}
             onRemoveAttachment={handleRemoveAttachment}
+            enableThinking={enableThinking}
+            onToggleThinking={setEnableThinking}
+            enableWebSearch={enableWebSearch}
+            onToggleWebSearch={setEnableWebSearch}
           />
           <div className="flex items-center justify-between mt-2 text-xs text-base-content/50">
             <span>Press Enter to send, Shift+Enter for new line</span>

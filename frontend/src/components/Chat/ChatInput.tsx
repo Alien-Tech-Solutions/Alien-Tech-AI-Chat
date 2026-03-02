@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Paperclip, Mic, StopCircle } from 'lucide-react';
+import { Send, Paperclip, Mic, StopCircle, Brain, Globe } from 'lucide-react';
 import Button from '../ui/Button';
 import CompanionCommandPanel from './CompanionCommandPanel';
 
@@ -17,6 +17,10 @@ interface ChatInputProps {
   isRecording?: boolean;
   maxLength?: number;
   isCompanionMode?: boolean;
+  enableThinking?: boolean;
+  onToggleThinking?: (enabled: boolean) => void;
+  enableWebSearch?: boolean;
+  onToggleWebSearch?: (enabled: boolean) => void;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
@@ -33,6 +37,10 @@ const ChatInput: React.FC<ChatInputProps> = ({
   isRecording = false,
   maxLength = 4000,
   isCompanionMode = false,
+  enableThinking = false,
+  onToggleThinking,
+  enableWebSearch = false,
+  onToggleWebSearch,
 }) => {
   const [isComposing, setIsComposing] = useState(false);
   const [showCommandPanel, setShowCommandPanel] = useState(false);
@@ -165,6 +173,34 @@ const ChatInput: React.FC<ChatInputProps> = ({
         <div className="flex items-end space-x-2">
           {/* Action Buttons */}
           <div className="flex flex-col space-y-1">
+            {/* Thinking toggle */}
+            {onToggleThinking && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onToggleThinking(!enableThinking)}
+                disabled={disabled}
+                className={`w-8 h-8 p-0 ${enableThinking ? 'text-purple-400' : ''}`}
+                title={enableThinking ? 'Disable chain-of-thought' : 'Enable chain-of-thought thinking'}
+              >
+                <Brain className="w-4 h-4" />
+              </Button>
+            )}
+
+            {/* Web search toggle */}
+            {onToggleWebSearch && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onToggleWebSearch(!enableWebSearch)}
+                disabled={disabled}
+                className={`w-8 h-8 p-0 ${enableWebSearch ? 'text-blue-400' : ''}`}
+                title={enableWebSearch ? 'Disable web search' : 'Enable web search'}
+              >
+                <Globe className="w-4 h-4" />
+              </Button>
+            )}
+
             {onFileUpload && (
               <Button
                 variant="ghost"

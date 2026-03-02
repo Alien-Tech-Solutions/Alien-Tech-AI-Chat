@@ -72,10 +72,11 @@ class ApiService {
     sessionId?: string,
     stream = false,
     images?: string[],
-    attachments?: ChatAttachment[]
+    attachments?: ChatAttachment[],
+    options?: { enableThinking?: boolean; enableWebSearch?: boolean; provider?: string }
   ): Promise<ApiResponse<Message>> {
     if (stream) {
-      return this.streamMessage(message, sessionId);
+      return this.streamMessage(message, sessionId, undefined, images, options);
     } else {
       const response = await this.api.post('/api/v1/chat', {
         message,
@@ -83,6 +84,9 @@ class ApiService {
         stream: false,
         images,
         attachments,
+        enableThinking: options?.enableThinking,
+        enableWebSearch: options?.enableWebSearch,
+        provider: options?.provider,
       });
       return response.data;
     }
@@ -90,26 +94,34 @@ class ApiService {
 
   // Streaming chat method
   streamMessage(
-    message: string, 
+    message: string,
     sessionId?: string,
     onChunk?: (chunk: any) => void,
-    images?: string[]
+    images?: string[],
+    options?: { enableThinking?: boolean; enableWebSearch?: boolean; provider?: string }
   ): Promise<ApiResponse<Message>> {
     return new Promise((resolve, reject) => {
       let url = `${this.baseURL}/api/v1/chat/stream?message=${encodeURIComponent(message)}&session_id=${sessionId || 'default'}`;
       if (images && images.length > 0) {
         url += `&images=${encodeURIComponent(JSON.stringify(images))}`;
       }
+      if (options?.enableThinking) url += '&enableThinking=true';
+      if (options?.enableWebSearch) url += '&enableWebSearch=true';
+      if (options?.provider) url += `&provider=${encodeURIComponent(options.provider)}`;
       const eventSource = new EventSource(url);
-      
+
       let fullResponse = '';
+      let fullThinking = '';
       let metadata: any = {};
-      
+
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          
-          if (data.type === 'content' && data.content) {
+
+          if (data.type === 'thinking' && data.content) {
+            fullThinking += data.content;
+            onChunk?.(data);
+          } else if (data.type === 'content' && data.content) {
             fullResponse += data.content;
             onChunk?.(data);
           } else if (data.type === 'metadata') {
@@ -124,7 +136,9 @@ class ApiService {
                 content: fullResponse,
                 timestamp: new Date().toISOString(),
                 tokens: metadata.tokens,
-                model: metadata.model
+                model: metadata.model,
+                thinking: fullThinking || undefined,
+                webSearchUsed: metadata.webSearchUsed,
               }
             });
           } else if (data.type === 'error') {
@@ -135,12 +149,12 @@ class ApiService {
           console.error('Error parsing stream data:', error);
         }
       };
-      
-      eventSource.onerror = (error) => {
+
+      eventSource.onerror = () => {
         eventSource.close();
         reject(new Error('EventSource failed'));
       };
-      
+
       // Cleanup after 5 minutes
       setTimeout(() => {
         eventSource.close();
