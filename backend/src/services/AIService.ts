@@ -10,6 +10,8 @@ import { DatabaseService } from './DatabaseService';
 import { MemoryService } from './MemoryService';
 import { EnhancedMemoryService } from './EnhancedMemoryService';
 import { PersonalityService } from './PersonalityService';
+import { WebFetcher } from './WebFetcher';
+import { WebSearchService } from './WebSearchService';
 import { analyzeSentiment } from '../middleware/sentiment_new';
 
 // Default number of past sessions to include in cross-session context
@@ -25,6 +27,8 @@ interface AIServiceOptions {
   usePersonality?: boolean;
   useMemory?: boolean;
   images?: string[]; // Base64-encoded images for vision models
+  enableThinking?: boolean; // Enable chain-of-thought thinking (Ollama only)
+  enableWebSearch?: boolean; // Enable web search tool augmentation (Ollama only)
 }
 
 export class AIService {
@@ -37,6 +41,8 @@ export class AIService {
   private memoryService: MemoryService;
   private enhancedMemory: EnhancedMemoryService;
   private personalityService: PersonalityService;
+  private webFetcher: WebFetcher;
+  private webSearchService: WebSearchService;
   private defaultProvider: AIProviderType;
 
   constructor(databaseService: DatabaseService) {
@@ -49,6 +55,8 @@ export class AIService {
     this.anthropicAdapter = new AnthropicAdapter();
     this.googleAdapter = new GoogleAdapter();
     this.xaiAdapter = new xAIAdapter();
+    this.webFetcher = new WebFetcher();
+    this.webSearchService = new WebSearchService(this.webFetcher, this.ollamaWrapper);
     this.defaultProvider = config.ai.primaryProvider as AIProviderType;
 
     aiLogger.info('AI Service initialized', {
@@ -342,7 +350,37 @@ export class AIService {
 
       switch (providerInfo.provider) {
         case 'ollama':
-          if (options.images && options.images.length > 0) {
+          if (options.enableWebSearch) {
+            // Use web search tool loop
+            const wsResult = await this.webSearchService.generateWithWebSearch(
+              message,
+              conversationContext,
+              personalityState,
+              {
+                model: options.model,
+                temperature: options.temperature,
+                maxTokens: options.maxTokens,
+              }
+            );
+            response = {
+              content: wsResult.content,
+              model: wsResult.model,
+              tokens_used: wsResult.tokensUsed,
+              response_time_ms: wsResult.responseTimeMs,
+              metadata: {
+                searchesPerformed: wsResult.searchesPerformed,
+                webSearchEnabled: true,
+              },
+            };
+          } else if (options.enableThinking) {
+            // Use chain-of-thought thinking
+            response = await this.ollamaWrapper.generateWithThinking(
+              message,
+              conversationContext,
+              personalityState,
+              providerOptions
+            );
+          } else if (options.images && options.images.length > 0) {
             // Use vision endpoint when images are provided
             const visionResult = await this.ollamaWrapper.generateWithVision(
               message,
@@ -495,12 +533,36 @@ export class AIService {
         ...(options.useUncensored !== undefined && { useUncensored: options.useUncensored }),
         ...(options.temperature !== undefined && { temperature: options.temperature }),
         ...(options.maxTokens && { maxTokens: options.maxTokens }),
-        ...(crossSessionSummary && { crossSessionSummary })
+        ...(crossSessionSummary && { crossSessionSummary }),
+        ...(options.enableThinking !== undefined && { think: options.enableThinking })
       };
 
       switch (providerInfo.provider) {
         case 'ollama':
-          if (options.images && options.images.length > 0) {
+          if (options.enableWebSearch) {
+            // Use web search tool loop; emit content as a single chunk
+            const wsResult = await this.webSearchService.generateWithWebSearch(
+              message,
+              conversationContext,
+              personalityState,
+              {
+                model: options.model,
+                temperature: options.temperature,
+                maxTokens: options.maxTokens,
+              }
+            );
+            onChunk({ type: 'content', content: wsResult.content });
+            response = {
+              content: wsResult.content,
+              model: wsResult.model,
+              tokens_used: wsResult.tokensUsed,
+              response_time_ms: wsResult.responseTimeMs,
+              metadata: {
+                searchesPerformed: wsResult.searchesPerformed,
+                webSearchEnabled: true,
+              },
+            };
+          } else if (options.images && options.images.length > 0) {
             // Use vision endpoint when images are provided
             const visionResult = await this.ollamaWrapper.generateWithVision(
               message,

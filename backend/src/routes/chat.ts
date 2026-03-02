@@ -7,7 +7,7 @@ import { EnhancedMemoryService } from '../services/EnhancedMemoryService';
 import { sentimentMiddleware, createSentimentMiddleware, SentimentAnalyzer } from '../middleware/sentiment';
 import { asyncHandler, createValidationError, createNotFoundError } from '../middleware/errorHandler';
 import { endpointRateLimiter } from '../middleware/rateLimiter';
-import { ChatRequest, ChatResponse, ChatAttachment, Conversation, StreamChunk } from '../types';
+import { ChatRequest, ChatResponse, ChatAttachment, Conversation, StreamChunk, AIProviderType } from '../types';
 import { aiLogger, apiLogger } from '../utils/logger';
 import { config } from '../config/settings';
 import { v4 as uuidv4 } from 'uuid';
@@ -59,6 +59,9 @@ export default function createChatRoutes(db: DatabaseService, aiService: AIServi
     useUncensored: body.useUncensored === true,
     images: Array.isArray(body.images) ? body.images : undefined,
     attachments: Array.isArray(body.attachments) ? body.attachments : undefined,
+    enableThinking: body.enableThinking === true,
+    enableWebSearch: body.enableWebSearch === true,
+    provider: typeof body.provider === 'string' ? body.provider : undefined,
   };
 }
 
@@ -84,8 +87,11 @@ async function generateAIResponse(
   personalityState: any,
   streamCallback?: (chunk: StreamChunk) => void,
   useUncensored: boolean = true,
-  images?: string[]
-): Promise<{ content: string; model: string; tokens: number; responseTime: number; provider: string }> {
+  images?: string[],
+  enableThinking?: boolean,
+  enableWebSearch?: boolean,
+  provider?: string
+): Promise<{ content: string; model: string; tokens: number; responseTime: number; provider: string; thinkingContent?: string; webSearchUsed?: boolean }> {
   const startTime = Date.now();
   
   try {
@@ -100,6 +106,9 @@ async function generateAIResponse(
           temperature: 0.7,
           maxTokens: 500,
           images,
+          enableThinking,
+          enableWebSearch,
+          ...(provider && { provider: provider as AIProviderType }),
         }
       );
 
@@ -108,7 +117,9 @@ async function generateAIResponse(
         model: result.response.model,
         tokens: result.response.tokens_used || 0,
         responseTime: result.response.response_time_ms || 0,
-        provider: result.provider as string
+        provider: result.provider as string,
+        thinkingContent: result.response.thinkingContent,
+        webSearchUsed: enableWebSearch === true,
       };
     } else {
       // Use regular AI generation
@@ -120,6 +131,9 @@ async function generateAIResponse(
           temperature: 0.7,
           maxTokens: 500,
           images,
+          enableThinking,
+          enableWebSearch,
+          ...(provider && { provider: provider as AIProviderType }),
         }
       );
 
@@ -128,7 +142,9 @@ async function generateAIResponse(
         model: result.response.model,
         tokens: result.response.tokens_used || 0,
         responseTime: result.response.response_time_ms || 0,
-        provider: String(result.provider)
+        provider: String(result.provider),
+        thinkingContent: result.response.thinkingContent,
+        webSearchUsed: enableWebSearch === true,
       };
     }
 
@@ -272,7 +288,10 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
             }
           },
           chatRequest.useUncensored,
-          resolvedImages
+          resolvedImages,
+          chatRequest.enableThinking,
+          chatRequest.enableWebSearch,
+          chatRequest.provider
         );
 
         responseMetadata = result;
@@ -304,7 +323,8 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
           responseTime: result.responseTime,
           model: result.model,
           sentiment: sentimentAnalysis,
-          mood: updatedMood
+          mood: updatedMood,
+          ...(result.thinkingContent && { thinking_content: result.thinkingContent }),
         };
         
         res.write(`data: ${JSON.stringify(finalData)}\n\n`);
@@ -337,7 +357,10 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
         personalityState,
         undefined,
         chatRequest.useUncensored,
-        resolvedImages
+        resolvedImages,
+        chatRequest.enableThinking,
+        chatRequest.enableWebSearch,
+        chatRequest.provider
       );
 
       // Save conversation to database with full context tracking
@@ -374,7 +397,10 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
         totalTime
       });
 
-      res.json(response);
+      res.json({
+        ...response,
+        ...(result.thinkingContent && { thinking_content: result.thinkingContent }),
+      });
     }
 
   } catch (error) {
@@ -530,6 +556,9 @@ router.get('/stream', asyncHandler(async (req: Request, res: Response) => {
   const message = req.query.message as string;
   const sessionId = req.query.session_id as string || 'default';
   const useUncensored = req.query.useUncensored === 'true';
+  const enableThinking = req.query.enableThinking === 'true';
+  const enableWebSearch = req.query.enableWebSearch === 'true';
+  const provider = req.query.provider as string | undefined;
   const imagesParam = req.query.images as string | undefined;
 
   // Parse images from query param (JSON-encoded array of base64 strings or file IDs)
@@ -624,7 +653,10 @@ router.get('/stream', asyncHandler(async (req: Request, res: Response) => {
         }
       },
       useUncensored,
-      streamImages
+      streamImages,
+      enableThinking,
+      enableWebSearch,
+      provider
     );
 
     // Save conversation to database with sentiment analysis
@@ -646,7 +678,8 @@ router.get('/stream', asyncHandler(async (req: Request, res: Response) => {
       tokens: result.tokens,
       responseTime: result.responseTime,
       model: result.model,
-      sentiment: sentimentAnalysis
+      sentiment: sentimentAnalysis,
+      webSearchUsed: result.webSearchUsed,
     };
     res.write(`data: ${JSON.stringify(metadata)}\n\n`);
 

@@ -29,6 +29,7 @@ import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import ChatSidebar from './ChatSidebar';
 import TypingIndicator from '../ui/TypingIndicator';
+import ThinkingPanel from './ThinkingPanel';
 import useStreamingResponse from '../../hooks/useStreamingResponse';
 
 // Simple toast function for error handling
@@ -84,7 +85,7 @@ const ChatInterface: React.FC = () => {
   const [currentAssistantMessageId, setCurrentAssistantMessageId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  
+
   // Enhanced UI state
   const [showQuickSettings, setShowQuickSettings] = useState(false);
   const [selectedModel, setSelectedModel] = useState('ollama-default');
@@ -99,6 +100,18 @@ const ChatInterface: React.FC = () => {
     uploading?: boolean;
     uploaded?: ChatAttachment;
   }>>([]);
+
+  // Feature toggles
+  const [enableThinking, setEnableThinking] = useState(false);
+  const [enableWebSearch, setEnableWebSearch] = useState(false);
+
+  // Thinking panel state – tracks live reasoning content as it streams
+  const [liveThinkingContent, setLiveThinkingContent] = useState('');
+  const [showThinkingPanel, setShowThinkingPanel] = useState(false);
+  const [isThinkingStreaming, setIsThinkingStreaming] = useState(false);
+
+  // Accumulated thinking content for streaming
+  const accumulatedThinkingRef = React.useRef('');
 
   // Handle pre-filled message from companion dashboard
   useEffect(() => {
@@ -196,6 +209,21 @@ const ChatInterface: React.FC = () => {
 
       addMessage(assistantMessage);
       setCurrentAssistantMessageId(assistantMessage.id);
+      accumulatedThinkingRef.current = '';
+
+      // Reset and open thinking panel when thinking is enabled
+      if (enableThinking) {
+        setLiveThinkingContent('');
+        setShowThinkingPanel(true);
+        setIsThinkingStreaming(true);
+      }
+
+      // Build options
+      const chatOptions = {
+        enableThinking,
+        enableWebSearch,
+        provider: AI_MODELS.find(m => m.id === selectedModel)?.provider || 'ollama',
+      };
 
       // Use the API service for chat
       if (images.length > 0) {
@@ -205,24 +233,41 @@ const ChatInterface: React.FC = () => {
           sessionId,
           false,
           images,
-          attachments.length > 0 ? attachments : undefined
+          attachments.length > 0 ? attachments : undefined,
+          chatOptions
         );
         if (response.success && response.data) {
-          updateAssistantMessage(assistantMessage.id, response.data.content);
+          const updates: Partial<Message> = { content: response.data.content };
+          if (response.data.thinking) updates.thinking = response.data.thinking;
+          if (response.data.webSearchUsed) updates.webSearchUsed = true;
+          useAppStore.getState().updateMessage(assistantMessage.id, updates);
         }
       } else {
         // For text-only, use streaming for better UX
         let accumulatedContent = '';
-        await api.streamMessage(
+        const finalMessage = await api.streamMessage(
           messageText,
           sessionId,
           (chunk) => {
-            if (chunk.type === 'content' && chunk.content) {
+            if (chunk.type === 'thinking' && chunk.content) {
+              // Accumulate in ref to avoid string allocation in state setter closure
+              accumulatedThinkingRef.current += chunk.content;
+              setLiveThinkingContent(accumulatedThinkingRef.current);
+            } else if (chunk.type === 'content' && chunk.content) {
               accumulatedContent += chunk.content;
               updateAssistantMessage(assistantMessage.id, accumulatedContent);
             }
-          }
+          },
+          undefined,
+          chatOptions
         );
+        setIsThinkingStreaming(false);
+
+        // Apply final metadata (thinking, webSearchUsed) from the resolved message
+        const updates: Partial<Message> = { content: accumulatedContent };
+        if (accumulatedThinkingRef.current) updates.thinking = accumulatedThinkingRef.current;
+        if (finalMessage?.data?.webSearchUsed) updates.webSearchUsed = true;
+        useAppStore.getState().updateMessage(assistantMessage.id, updates);
       }
 
       setIsLoading(false);
@@ -230,6 +275,7 @@ const ChatInterface: React.FC = () => {
 
     } catch (error) {
       console.error('Error sending message:', error);
+      setIsThinkingStreaming(false);
       toast({
         title: "Error",
         description: "Failed to send message. Please try again."
@@ -567,65 +613,88 @@ const ChatInterface: React.FC = () => {
           </div>
         </div>
 
-        {/* Messages */}
-        <div 
-          ref={chatContainerRef}
-          className="flex-1 overflow-y-auto p-4 space-y-4"
-        >
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <Bot className="h-16 w-16 text-base-content/40 mb-4" />
-              <h2 className="text-xl font-semibold mb-2">Welcome to Lackadaisical AI Chat</h2>
-              <p className="text-base-content/60 max-w-md mb-6">
-                Start a conversation with your AI companion. I'm here to chat, help, and learn with you.
-              </p>
-              
-              {/* Quick Start Suggestions */}
-              <div className="flex flex-wrap gap-2 justify-center max-w-lg">
-                {[
-                  "Tell me a joke",
-                  "Help me write code",
-                  "Explain a concept",
-                  "Creative writing",
-                  "Daily check-in"
-                ].map((suggestion, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setInputValue(suggestion)}
-                    className="px-4 py-2 bg-base-200 hover:bg-base-300 rounded-full text-sm transition-colors"
-                  >
-                    <Sparkles className="h-3 w-3 inline mr-2" />
-                    {suggestion}
-                  </button>
-                ))}
+        {/* Messages + Thinking Panel row */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Messages column */}
+          <div
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto p-4 space-y-4"
+          >
+            {messages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <Bot className="h-16 w-16 text-base-content/40 mb-4" />
+                <h2 className="text-xl font-semibold mb-2">Welcome to Lackadaisical AI Chat</h2>
+                <p className="text-base-content/60 max-w-md mb-6">
+                  Start a conversation with your AI companion. I'm here to chat, help, and learn with you.
+                </p>
+
+                {/* Quick Start Suggestions */}
+                <div className="flex flex-wrap gap-2 justify-center max-w-lg">
+                  {[
+                    "Tell me a joke",
+                    "Help me write code",
+                    "Explain a concept",
+                    "Creative writing",
+                    "Daily check-in"
+                  ].map((suggestion, index) => (
+                    <button
+                      key={index}
+                      onClick={() => setInputValue(suggestion)}
+                      className="px-4 py-2 bg-base-200 hover:bg-base-300 rounded-full text-sm transition-colors"
+                    >
+                      <Sparkles className="h-3 w-3 inline mr-2" />
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          ) : (
-            messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
-            ))
-          )}
-          
-          {isStreaming && (
-            <div className="flex items-center justify-between space-x-2 p-4 bg-base-100 rounded-lg border border-base-300">
-              <TypingIndicator 
-                variant="processing" 
-                isVisible={isStreaming}
-                text="AI is generating response..."
-              />
-              <Button
-                onClick={stopStreaming}
-                variant="outline"
-                size="sm"
-                className="text-error hover:bg-error hover:text-error-content"
-              >
-                <StopCircle className="h-4 w-4 mr-2" />
-                Stop
-              </Button>
-            </div>
-          )}
-          
-          <div ref={messagesEndRef} />
+            ) : (
+              messages.map((message) => (
+                <MessageBubble key={message.id} message={message} />
+              ))
+            )}
+
+            {/* Generating indicator — shown while isLoading (direct API call) */}
+            {isLoading && (
+              <div className="flex items-center space-x-2 p-4 bg-base-100 rounded-lg border border-base-300">
+                <TypingIndicator
+                  variant="processing"
+                  isVisible={isLoading}
+                  text={isThinkingStreaming ? 'AI is reasoning…' : 'AI is generating response…'}
+                />
+              </div>
+            )}
+
+            {/* Legacy streaming hook indicator */}
+            {isStreaming && (
+              <div className="flex items-center justify-between space-x-2 p-4 bg-base-100 rounded-lg border border-base-300">
+                <TypingIndicator
+                  variant="processing"
+                  isVisible={isStreaming}
+                  text="AI is generating response..."
+                />
+                <Button
+                  onClick={stopStreaming}
+                  variant="outline"
+                  size="sm"
+                  className="text-error hover:bg-error hover:text-error-content"
+                >
+                  <StopCircle className="h-4 w-4 mr-2" />
+                  Stop
+                </Button>
+              </div>
+            )}
+
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Thinking Panel — separate window for chain-of-thought */}
+          <ThinkingPanel
+            isOpen={showThinkingPanel}
+            onClose={() => setShowThinkingPanel(false)}
+            thinkingContent={liveThinkingContent}
+            isStreaming={isThinkingStreaming}
+          />
         </div>
 
         {/* Input Area */}
@@ -640,6 +709,14 @@ const ChatInterface: React.FC = () => {
             onFileUpload={handleFileUpload}
             pendingAttachments={pendingAttachments}
             onRemoveAttachment={handleRemoveAttachment}
+            enableThinking={enableThinking}
+            onToggleThinking={(enabled) => {
+              setEnableThinking(enabled);
+              // Auto-open/close the panel with the toggle
+              if (enabled) setShowThinkingPanel(true);
+            }}
+            enableWebSearch={enableWebSearch}
+            onToggleWebSearch={setEnableWebSearch}
           />
           <div className="flex items-center justify-between mt-2 text-xs text-base-content/50">
             <span>Press Enter to send, Shift+Enter for new line</span>

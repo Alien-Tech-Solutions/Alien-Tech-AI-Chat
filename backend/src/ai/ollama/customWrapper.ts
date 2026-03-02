@@ -24,6 +24,7 @@ interface OllamaModelOptions {
 interface OllamaChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  thinking?: string;
   images?: string[];
   tool_calls?: OllamaToolCall[];
 }
@@ -54,6 +55,7 @@ interface OllamaChatRequest {
   tools?: OllamaTool[];
   format?: string | Record<string, unknown>;
   stream?: boolean;
+  think?: boolean;
   options?: OllamaModelOptions;
   keep_alive?: string | number;
 }
@@ -447,6 +449,7 @@ export class OllamaWrapper {
       temperature?: number;
       maxTokens?: number;
       crossSessionSummary?: string;
+      think?: boolean;
     } = {}
   ): Promise<AIResponse> {
     const startTime = Date.now();
@@ -486,9 +489,14 @@ export class OllamaWrapper {
         }
       };
 
+      if (options.think) {
+        requestData.think = true;
+      }
+
       onChunk({ type: 'start' });
 
       let fullResponse = '';
+      let fullThinking = '';
       let tokensUsed = 0;
 
       const response = await this.client.post('/api/chat', requestData, {
@@ -512,6 +520,11 @@ export class OllamaWrapper {
             try {
               const data: OllamaChatResponse = JSON.parse(trimmedLine);
 
+              if (data.message?.thinking) {
+                fullThinking += data.message.thinking;
+                onChunk({ type: 'thinking', content: data.message.thinking });
+              }
+
               if (data.message?.content) {
                 fullResponse += data.message.content;
                 onChunk({ type: 'content', content: data.message.content });
@@ -526,6 +539,7 @@ export class OllamaWrapper {
                   model: data.model,
                   tokens_used: tokensUsed,
                   response_time_ms: responseTime,
+                  ...(fullThinking && { thinkingContent: fullThinking.trim() }),
                   metadata: {
                     total_duration: data.total_duration,
                     load_duration: data.load_duration,
@@ -577,6 +591,115 @@ export class OllamaWrapper {
       });
 
       throw error;
+    }
+  }
+
+  /**
+   * Generate a response with chain-of-thought thinking enabled.
+   * Uses think:true to get reasoning steps alongside the final answer.
+   */
+  async generateWithThinking(
+    message: string,
+    conversationContext: Conversation[] = [],
+    personalityState: PersonalityState | null = null,
+    options: {
+      model?: string;
+      temperature?: number;
+      maxTokens?: number;
+      crossSessionSummary?: string;
+    } = {}
+  ): Promise<AIResponse> {
+    const startTime = Date.now();
+
+    try {
+      if (!this.isAvailable) {
+        await this.checkAvailability();
+        if (!this.isAvailable) {
+          throw new Error('Ollama service is not available');
+        }
+      }
+
+      const model = options.model || this.defaultModel;
+
+      const modelAvailable = await this.isModelAvailable(model);
+      if (!modelAvailable) {
+        aiLogger.info('Model not available, attempting to pull:', { model });
+        await this.pullModel(model);
+      }
+
+      const systemPrompt = this.buildSystemPrompt(personalityState, conversationContext, options.crossSessionSummary);
+
+      const messages: OllamaChatMessage[] = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: message }
+      ];
+
+      const requestData: OllamaChatRequest = {
+        model,
+        messages,
+        stream: false,
+        think: true,
+        options: {
+          ...DEFAULT_MODEL_OPTIONS,
+          temperature: options.temperature || DEFAULT_MODEL_OPTIONS.temperature,
+          num_predict: options.maxTokens || DEFAULT_MODEL_OPTIONS.num_predict,
+        }
+      };
+
+      aiLogger.info('Generating Ollama response with thinking:', {
+        model,
+        messageLength: message.length,
+        contextCount: conversationContext.length,
+      });
+
+      const response: AxiosResponse<OllamaChatResponse> = await this.client.post('/api/chat', requestData);
+
+      if (!response.data.done) {
+        throw new Error('Ollama response incomplete');
+      }
+
+      const responseTime = Date.now() - startTime;
+      const tokensUsed = (response.data.prompt_eval_count || 0) + (response.data.eval_count || 0);
+
+      const aiResponse: AIResponse = {
+        content: response.data.message.content.trim(),
+        model: response.data.model,
+        tokens_used: tokensUsed,
+        response_time_ms: responseTime,
+        ...(response.data.message.thinking && { thinkingContent: response.data.message.thinking }),
+        metadata: {
+          total_duration: response.data.total_duration,
+          load_duration: response.data.load_duration,
+          prompt_eval_count: response.data.prompt_eval_count,
+          prompt_eval_duration: response.data.prompt_eval_duration,
+          eval_count: response.data.eval_count,
+          eval_duration: response.data.eval_duration
+        }
+      };
+
+      aiLogger.info('Ollama thinking response generated successfully:', {
+        model: aiResponse.model,
+        responseLength: aiResponse.content.length,
+        hasThinking: !!aiResponse.thinkingContent,
+        tokensUsed: aiResponse.tokens_used,
+        responseTime: aiResponse.response_time_ms
+      });
+
+      return aiResponse;
+
+    } catch (error) {
+      const responseTime = Date.now() - startTime;
+      aiLogger.error('Ollama thinking generation failed:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        responseTime,
+        model: options.model || this.defaultModel
+      });
+
+      if (error instanceof Error) {
+        throw new Error(`Ollama thinking generation failed: ${error.message}`);
+      } else {
+        throw new Error('Ollama thinking generation failed: Unknown error');
+      }
     }
   }
 
