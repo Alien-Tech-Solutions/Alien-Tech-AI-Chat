@@ -46,6 +46,17 @@ export interface WebSearchOptions {
   maxTokens?: number;
 }
 
+/** Minimal interface for the WebFetcher dependency. */
+export interface IWebFetcher {
+  search(query: string, options?: Record<string, unknown>): Promise<{ results: SearchResult[]; provider: string; totalResults: number; searchTime: number }>;
+  fetchUrl(url: string, options?: Record<string, unknown>): Promise<{ content: string; title: string; url: string; metadata: Record<string, unknown> }>;
+}
+
+/** Minimal interface for the OllamaWrapper dependency. */
+export interface IOllamaWrapper {
+  generateChatCompletion(messages: Array<{ role: string; content: string; tool_calls?: unknown[]; tool_name?: string }>, options?: Record<string, unknown>): Promise<{ model: string; message: { role: string; content: string; tool_calls?: Array<{ function: { name: string; arguments: Record<string, unknown> } }> }; done: boolean }>;
+}
+
 /**
  * WebSearchService provides web search as an Ollama tool capability.
  *
@@ -56,8 +67,8 @@ export interface WebSearchOptions {
  */
 export class WebSearchService {
   constructor(
-    private webFetcher: any,
-    private ollamaWrapper: any
+    private webFetcher: IWebFetcher,
+    private ollamaWrapper: IOllamaWrapper
   ) {}
 
   /** Returns the Ollama tool definitions for web search capabilities. */

@@ -71,6 +71,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
               <div className="mb-3 rounded-lg border border-purple-300/40 bg-purple-500/10 overflow-hidden">
                 <button
                   onClick={() => setShowThinking(!showThinking)}
+                  aria-expanded={showThinking}
+                  aria-controls="thinking-content"
                   className="flex items-center gap-2 w-full px-3 py-2 text-xs font-medium text-purple-400 hover:bg-purple-500/10 transition-colors"
                 >
                   <Brain className="w-3.5 h-3.5 flex-shrink-0" />
@@ -78,7 +80,13 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                   {showThinking ? <ChevronDown className="w-3 h-3 ml-auto" /> : <ChevronRight className="w-3 h-3 ml-auto" />}
                 </button>
                 {showThinking && (
-                  <div className="px-3 pb-3 text-xs text-purple-300/80 whitespace-pre-wrap border-t border-purple-300/20 pt-2 max-h-64 overflow-y-auto">
+                  <div
+                    id="thinking-content"
+                    role="region"
+                    aria-label="Chain of thought reasoning"
+                    tabIndex={0}
+                    className="px-3 pb-3 text-xs text-purple-300/80 whitespace-pre-wrap border-t border-purple-300/20 pt-2 max-h-64 overflow-y-auto focus:outline-none focus:ring-1 focus:ring-purple-400"
+                  >
                     {message.thinking}
                   </div>
                 )}

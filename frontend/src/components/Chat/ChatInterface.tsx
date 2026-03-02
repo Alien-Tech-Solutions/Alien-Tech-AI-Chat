@@ -209,10 +209,7 @@ const ChatInterface: React.FC = () => {
       const chatOptions = {
         enableThinking,
         enableWebSearch,
-        provider: selectedModel.startsWith('gpt') ? 'openai'
-          : selectedModel.startsWith('claude') ? 'anthropic'
-          : selectedModel.startsWith('gemini') ? 'google'
-          : 'ollama',
+        provider: AI_MODELS.find(m => m.id === selectedModel)?.provider || 'ollama',
       };
 
       // Use the API service for chat
