@@ -608,12 +608,13 @@ export class OllamaWrapper {
 
   /**
    * Direct access to the /api/chat endpoint with full message array control.
+   * Note: This method always uses non-streaming mode. For streaming, use
+   * generateStreamingResponse() which handles NDJSON chunk parsing.
    */
   async generateChatCompletion(
     messages: OllamaChatMessage[],
     options?: {
       model?: string;
-      stream?: boolean;
       format?: string | Record<string, unknown>;
       tools?: OllamaTool[];
       modelOptions?: OllamaModelOptions;
@@ -625,7 +626,7 @@ export class OllamaWrapper {
     const requestData: OllamaChatRequest = {
       model,
       messages,
-      stream: options?.stream ?? false,
+      stream: false,
       options: options?.modelOptions,
       keep_alive: options?.keep_alive,
     };
