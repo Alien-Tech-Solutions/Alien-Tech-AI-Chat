@@ -23,7 +23,7 @@ import {
   Minimize2
 } from 'lucide-react';
 import { useAppStore } from '../../store';
-import { Message } from '../../types';
+import { Message, ChatAttachment } from '../../types';
 import Button from '../ui/Button';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
@@ -49,6 +49,18 @@ const AI_MODELS = [
   { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', provider: 'anthropic', description: 'Balanced performance' },
   { id: 'gemini-pro', name: 'Gemini Pro', provider: 'google', description: 'Google AI' },
 ];
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      // Return full data URI so MIME type is preserved
+      resolve(reader.result as string);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 const ChatInterface: React.FC = () => {
   const location = useLocation();
@@ -81,6 +93,12 @@ const ChatInterface: React.FC = () => {
   const [showModelSelector, setShowModelSelector] = useState(false);
   const [chatTemperature, setChatTemperature] = useState(0.7);
   const [maxTokens, setMaxTokens] = useState(2048);
+  const [pendingAttachments, setPendingAttachments] = useState<Array<{
+    file: File;
+    preview?: string;
+    uploading?: boolean;
+    uploaded?: ChatAttachment;
+  }>>([]);
 
   // Handle pre-filled message from companion dashboard
   useEffect(() => {
@@ -139,12 +157,31 @@ const ChatInterface: React.FC = () => {
       // Ensure we have a session
       const sessionId = currentSession?.id || 'default';
 
+      // Collect images and attachments from pending files
+      const images: string[] = [];
+      const attachments: ChatAttachment[] = [];
+
+      for (const att of pendingAttachments) {
+        if (att.uploaded) {
+          attachments.push(att.uploaded);
+        }
+        if (att.file.type.startsWith('image/') && att.preview) {
+          const base64 = await fileToBase64(att.file);
+          images.push(base64);
+        }
+      }
+
+      // Clear pending attachments
+      setPendingAttachments([]);
+
       // Create user message
       const userMessage: Message = {
         id: Date.now().toString(),
         role: 'user',
         content: messageText,
         timestamp: new Date().toISOString(),
+        images: images.length > 0 ? images : undefined,
+        attachments: attachments.length > 0 ? attachments : undefined,
       };
 
       addMessage(userMessage);
@@ -160,19 +197,33 @@ const ChatInterface: React.FC = () => {
       addMessage(assistantMessage);
       setCurrentAssistantMessageId(assistantMessage.id);
 
-      // Use the API service for streaming (FIXED)
-      let accumulatedContent = '';
-      await api.streamMessage(
-        messageText,
-        sessionId,
-        (chunk) => {
-          if (chunk.type === 'content' && chunk.content) {
-            // Accumulate content and update the message
-            accumulatedContent += chunk.content;
-            updateAssistantMessage(assistantMessage.id, accumulatedContent);
-          }
+      // Use the API service for chat
+      if (images.length > 0) {
+        // For vision requests with images, use POST (no URL length limits)
+        const response = await api.sendMessage(
+          messageText,
+          sessionId,
+          false,
+          images,
+          attachments.length > 0 ? attachments : undefined
+        );
+        if (response.success && response.data) {
+          updateAssistantMessage(assistantMessage.id, response.data.content);
         }
-      );
+      } else {
+        // For text-only, use streaming for better UX
+        let accumulatedContent = '';
+        await api.streamMessage(
+          messageText,
+          sessionId,
+          (chunk) => {
+            if (chunk.type === 'content' && chunk.content) {
+              accumulatedContent += chunk.content;
+              updateAssistantMessage(assistantMessage.id, accumulatedContent);
+            }
+          }
+        );
+      }
 
       setIsLoading(false);
       setCurrentAssistantMessageId(null);
@@ -281,6 +332,40 @@ const ChatInterface: React.FC = () => {
       setInputValue(lastUserMessage.content);
       // User can review and send manually, or modify before sending
     }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    const isImage = file.type.startsWith('image/');
+    let preview: string | undefined;
+
+    if (isImage) {
+      preview = URL.createObjectURL(file);
+    }
+
+    const index = pendingAttachments.length;
+    setPendingAttachments(prev => [...prev, { file, preview, uploading: true }]);
+
+    try {
+      const response = await api.uploadChatAttachment(file);
+      if (response.success && response.data) {
+        setPendingAttachments(prev =>
+          prev.map((att, i) => i === index ? { ...att, uploading: false, uploaded: response.data } : att)
+        );
+      }
+    } catch (error) {
+      console.error('File upload failed:', error);
+      setPendingAttachments(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleRemoveAttachment = (index: number) => {
+    setPendingAttachments(prev => {
+      const att = prev[index];
+      if (att?.preview) {
+        URL.revokeObjectURL(att.preview);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   return (
@@ -552,6 +637,9 @@ const ChatInterface: React.FC = () => {
             onKeyPress={handleKeyPress}
             disabled={isLoading || isStreaming}
             placeholder="Type your message..."
+            onFileUpload={handleFileUpload}
+            pendingAttachments={pendingAttachments}
+            onRemoveAttachment={handleRemoveAttachment}
           />
           <div className="flex items-center justify-between mt-2 text-xs text-base-content/50">
             <span>Press Enter to send, Shift+Enter for new line</span>

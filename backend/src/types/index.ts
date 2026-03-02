@@ -201,6 +201,17 @@ export interface ChatRequest {
   context?: Record<string, any>;
   stream?: boolean;
   useUncensored?: boolean;
+  images?: string[]; // Base64-encoded images for vision models
+  attachments?: ChatAttachment[]; // Uploaded file references
+}
+
+export interface ChatAttachment {
+  id: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
 }
 
 export interface ChatResponse {
@@ -369,6 +380,49 @@ export interface HealthStatus {
     plugins: Record<string, 'up' | 'down'>;
   };
   version: string;
+}
+
+// Ollama Chat API types
+export interface OllamaChatMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  images?: string[];
+  tool_calls?: OllamaToolCall[];
+}
+
+export interface OllamaToolCall {
+  function: {
+    name: string;
+    arguments: Record<string, unknown>;
+  };
+}
+
+export interface OllamaTool {
+  type: 'function';
+  function: {
+    name: string;
+    description: string;
+    parameters: {
+      type: 'object';
+      required?: string[];
+      properties: Record<string, { type: string; description: string; enum?: string[] }>;
+    };
+  };
+}
+
+// Embeddings types
+export interface EmbeddingsRequest {
+  model?: string;
+  input: string | string[];
+  truncate?: boolean;
+}
+
+export interface EmbeddingsResponse {
+  model: string;
+  embeddings: number[][];
+  total_duration?: number;
+  load_duration?: number;
+  prompt_eval_count?: number;
 }
 
 // Export all types as a namespace as well

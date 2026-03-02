@@ -11,6 +11,8 @@ interface ChatInputProps {
   disabled?: boolean;
   placeholder?: string;
   onFileUpload?: (file: File) => void;
+  onRemoveAttachment?: (index: number) => void;
+  pendingAttachments?: Array<{ file: File; preview?: string; uploading?: boolean }>;
   onVoiceRecord?: () => void;
   isRecording?: boolean;
   maxLength?: number;
@@ -25,6 +27,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
   disabled = false,
   placeholder = "Type your message...",
   onFileUpload,
+  onRemoveAttachment,
+  pendingAttachments,
   onVoiceRecord,
   isRecording = false,
   maxLength = 4000,
@@ -120,73 +124,112 @@ const ChatInput: React.FC<ChatInputProps> = ({
       />
 
       {/* Main Input Area */}
-      <div className="flex items-end space-x-2 bg-base-100 border border-base-300 rounded-lg p-3">
-        {/* Action Buttons */}
-        <div className="flex flex-col space-y-1">
-          {onFileUpload && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled}
-              className="w-8 h-8 p-0"
-              title="Attach file"
-            >
-              <Paperclip className="w-4 h-4" />
-            </Button>
-          )}
-          
-          {onVoiceRecord && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleVoiceRecord}
-              disabled={disabled}
-              className={`w-8 h-8 p-0 ${isRecording ? 'text-error' : ''}`}
-              title={isRecording ? 'Stop recording' : 'Voice message'}
-            >
-              {isRecording ? <StopCircle className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </Button>
-          )}
-        </div>
+      <div className="bg-base-100 border border-base-300 rounded-lg p-3">
+        {/* Attachment Previews */}
+        {pendingAttachments && pendingAttachments.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {pendingAttachments.map((att, index) => (
+              <div key={index} className="relative group flex items-center gap-2 bg-base-200 rounded-lg p-2 pr-8 text-sm">
+                {att.preview ? (
+                  <img src={att.preview} alt={att.file.name} className="w-10 h-10 object-cover rounded" />
+                ) : (
+                  <div className="w-10 h-10 bg-base-300 rounded flex items-center justify-center text-xs">
+                    {att.file.name.split('.').pop()?.toUpperCase() || 'FILE'}
+                  </div>
+                )}
+                <div className="max-w-[120px]">
+                  <div className="truncate font-medium">{att.file.name}</div>
+                  <div className="text-xs text-base-content/50">
+                    {(att.file.size / 1024).toFixed(1)} KB
+                  </div>
+                </div>
+                {att.uploading && (
+                  <div className="absolute inset-0 bg-base-100/70 rounded-lg flex items-center justify-center">
+                    <span className="loading loading-spinner loading-sm"></span>
+                  </div>
+                )}
+                {onRemoveAttachment && (
+                  <button
+                    onClick={() => onRemoveAttachment(index)}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-error text-error-content flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Remove"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
 
-        {/* Text Input */}
-        <div className="flex-1 relative">
-          <textarea
-            ref={textareaRef}
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onCompositionStart={() => setIsComposing(true)}
-            onCompositionEnd={() => setIsComposing(false)}
-            placeholder={placeholder}
-            disabled={disabled}
-            maxLength={maxLength}
-            className="w-full resize-none bg-transparent border-none outline-none text-base-content placeholder-base-content/50 min-h-[20px] max-h-32"
-            rows={1}
-          />
-          
-          {/* Character Counter */}
-          {maxLength && (
-            <div className={`absolute bottom-0 right-0 text-xs ${
-              isOverLimit ? 'text-error' : 'text-base-content/50'
-            }`}>
-              {characterCount}/{maxLength}
-            </div>
-          )}
-        </div>
+        <div className="flex items-end space-x-2">
+          {/* Action Buttons */}
+          <div className="flex flex-col space-y-1">
+            {onFileUpload && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disabled}
+                className="w-8 h-8 p-0"
+                title="Attach file"
+              >
+                <Paperclip className="w-4 h-4" />
+              </Button>
+            )}
+            
+            {onVoiceRecord && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleVoiceRecord}
+                disabled={disabled}
+                className={`w-8 h-8 p-0 ${isRecording ? 'text-error' : ''}`}
+                title={isRecording ? 'Stop recording' : 'Voice message'}
+              >
+                {isRecording ? <StopCircle className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </Button>
+            )}
+          </div>
 
-        {/* Send Button */}
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={handleSend}
-          disabled={disabled || !value.trim() || isComposing || isOverLimit}
-          className="w-8 h-8 p-0 flex-shrink-0"
-          title="Send message"
-        >
-          <Send className="w-4 h-4" />
-        </Button>
+          {/* Text Input */}
+          <div className="flex-1 relative">
+            <textarea
+              ref={textareaRef}
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onCompositionStart={() => setIsComposing(true)}
+              onCompositionEnd={() => setIsComposing(false)}
+              placeholder={placeholder}
+              disabled={disabled}
+              maxLength={maxLength}
+              className="w-full resize-none bg-transparent border-none outline-none text-base-content placeholder-base-content/50 min-h-[20px] max-h-32"
+              rows={1}
+            />
+            
+            {/* Character Counter */}
+            {maxLength && (
+              <div className={`absolute bottom-0 right-0 text-xs ${
+                isOverLimit ? 'text-error' : 'text-base-content/50'
+              }`}>
+                {characterCount}/{maxLength}
+              </div>
+            )}
+          </div>
+
+          {/* Send Button */}
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleSend}
+            disabled={disabled || !value.trim() || isComposing || isOverLimit}
+            className="w-8 h-8 p-0 flex-shrink-0"
+            title="Send message"
+          >
+            <Send className="w-4 h-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Error Message */}

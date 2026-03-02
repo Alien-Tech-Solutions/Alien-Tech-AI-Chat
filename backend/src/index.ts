@@ -33,6 +33,7 @@ import sessionRoutes, { createSessionRoutes } from './routes/sessions';
 import contextRoutes, { createContextRoutes } from './routes/context';
 import authRoutes from './routes/auth';
 import modelRoutes from './routes/models';
+import fileRoutes from './routes/files';
 import AIService from './services/AIService';
 
 // Import WebSocket handler
@@ -136,7 +137,11 @@ class LackadaisicalAIServer {
     this.app.use(`${apiBase}/plugins`, pluginRoutes);
     this.app.use(`${apiBase}/companion`, companionRoutesWithDeps);
     this.app.use(`${apiBase}/sessions`, sessionRoutesWithDeps);
+    this.app.use(`${apiBase}/files`, fileRoutes);
     this.app.use(`${apiBase}`, contextRoutesWithDeps);
+
+    // Serve uploaded files as static assets
+    this.app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
 
     // Direct API routes for frontend compatibility
     this.app.use('/api/auth', authRoutes);
@@ -147,6 +152,7 @@ class LackadaisicalAIServer {
     this.app.use('/api/companion', companionRoutesWithDeps);
     this.app.use('/api/sessions', sessionRoutesWithDeps);
     this.app.use('/api/models', modelRoutes);
+    this.app.use('/api/files', fileRoutes);
     this.app.use('/api', contextRoutesWithDeps);
 
     // Root endpoint

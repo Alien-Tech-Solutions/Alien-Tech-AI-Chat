@@ -91,6 +91,24 @@ Switch between AI providers on the fly without restarting:
 - **Session Switching** - Easy navigation between different conversations
 - **Mobile Friendly** - Works great on phones and tablets
 
+### 👁️ **Vision & File Attachments (NEW!)**
+- **Image Vision** - Attach images and let the AI describe or analyze them
+- **File Uploads** - Upload images, PDFs, and text files directly in chat
+- **Attachment Previews** - See thumbnails and file info before sending
+- **Tool Call Display** - View AI tool/function call results inline in messages
+- **File Downloads** - Download AI-generated files directly from chat
+- **Drag & Drop** - Easy file attachment via the paperclip button
+
+## 📸 Screenshots
+
+| Chat Interface | Companion Dashboard |
+|:-:|:-:|
+| ![Chat Interface](docs/screenshots/chat-interface.png) | ![Companion Dashboard](docs/screenshots/companion-dashboard.png) |
+
+| Chat Input with Attachments | Settings |
+|:-:|:-:|
+| ![Chat Input](docs/screenshots/chat-input-attachment.png) | ![Settings](docs/screenshots/settings-page.png) |
+
 ### 🔌 **Plugin Ecosystem**
 - **Weather Plugin** - Get weather updates (with fallback data when offline)
 - **Horoscope Plugin** - Daily astrological insights
@@ -182,10 +200,16 @@ GET  /api/models/current   - Check current active model
 
 #### Chat & Messages
 ```
-POST /api/v1/chat              - Send message
+POST /api/v1/chat              - Send message (supports images[] and attachments[])
 GET  /api/v1/chat/stream       - Stream response (SSE)
 GET  /api/chat/context/:id     - Get session context
 GET  /api/chat/analytics/:id   - Get session analytics
+```
+
+#### File Attachments
+```
+POST /api/v1/files/upload      - Upload file attachment (multipart, 10MB max)
+GET  /api/v1/files/:fileId     - Download/serve uploaded file
 ```
 
 #### Models (Hot-Swap)

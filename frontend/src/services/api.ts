@@ -3,6 +3,7 @@ import {
   ApiResponse, 
   Message, 
   ChatSession, 
+  ChatAttachment,
   PersonalityState, 
   JournalEntry, 
   PluginState, 
@@ -55,17 +56,33 @@ class ApiService {
     );
   }
 
+  // File upload for chat attachments
+  async uploadChatAttachment(file: File): Promise<ApiResponse<ChatAttachment>> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await this.api.post('/api/v1/files/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  }
+
   // Chat endpoints
-  async sendMessage(message: string, sessionId?: string, stream = false): Promise<ApiResponse<Message>> {
+  async sendMessage(
+    message: string,
+    sessionId?: string,
+    stream = false,
+    images?: string[],
+    attachments?: ChatAttachment[]
+  ): Promise<ApiResponse<Message>> {
     if (stream) {
-      // For streaming, we'll return a promise that resolves when streaming is complete
       return this.streamMessage(message, sessionId);
     } else {
-      // Regular API call
       const response = await this.api.post('/api/v1/chat', {
         message,
         session_id: sessionId || 'default',
-        stream: false
+        stream: false,
+        images,
+        attachments,
       });
       return response.data;
     }
@@ -75,10 +92,14 @@ class ApiService {
   streamMessage(
     message: string, 
     sessionId?: string,
-    onChunk?: (chunk: any) => void
+    onChunk?: (chunk: any) => void,
+    images?: string[]
   ): Promise<ApiResponse<Message>> {
     return new Promise((resolve, reject) => {
-      const url = `${this.baseURL}/api/v1/chat/stream?message=${encodeURIComponent(message)}&session_id=${sessionId || 'default'}`;
+      let url = `${this.baseURL}/api/v1/chat/stream?message=${encodeURIComponent(message)}&session_id=${sessionId || 'default'}`;
+      if (images && images.length > 0) {
+        url += `&images=${encodeURIComponent(JSON.stringify(images))}`;
+      }
       const eventSource = new EventSource(url);
       
       let fullResponse = '';
