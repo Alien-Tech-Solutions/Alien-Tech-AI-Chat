@@ -20,6 +20,7 @@ interface AIServiceOptions {
   stream?: boolean;
   usePersonality?: boolean;
   useMemory?: boolean;
+  images?: string[]; // Base64-encoded images for vision models
 }
 
 export class AIService {
@@ -294,12 +295,35 @@ export class AIService {
 
       switch (providerInfo.provider) {
         case 'ollama':
-          response = await this.ollamaWrapper.generateResponse(
-            message,
-            conversationContext,
-            personalityState,
-            providerOptions
-          );
+          if (options.images && options.images.length > 0) {
+            // Use vision endpoint when images are provided
+            const visionResult = await this.ollamaWrapper.generateWithVision(
+              message,
+              options.images,
+              {
+                model: options.model,
+                modelOptions: {
+                  temperature: options.temperature,
+                  num_predict: options.maxTokens,
+                },
+              }
+            );
+            response = {
+              content: visionResult.message?.content || '',
+              model: visionResult.model,
+              tokens_used: (visionResult.prompt_eval_count || 0) + (visionResult.eval_count || 0),
+              response_time_ms: visionResult.total_duration
+                ? Math.round(visionResult.total_duration / 1_000_000)
+                : Date.now() - startTime,
+            };
+          } else {
+            response = await this.ollamaWrapper.generateResponse(
+              message,
+              conversationContext,
+              personalityState,
+              providerOptions
+            );
+          }
           break;
 
         case 'openai':
@@ -426,13 +450,39 @@ export class AIService {
 
       switch (providerInfo.provider) {
         case 'ollama':
-          response = await this.ollamaWrapper.generateStreamingResponse(
-            message,
-            conversationContext,
-            personalityState,
-            onChunk,
-            streamingOptions
-          );
+          if (options.images && options.images.length > 0) {
+            // Use vision endpoint when images are provided
+            const visionResult = await this.ollamaWrapper.generateWithVision(
+              message,
+              options.images,
+              {
+                model: options.model,
+                modelOptions: {
+                  temperature: options.temperature,
+                  num_predict: options.maxTokens,
+                },
+              }
+            );
+            const content = visionResult.message?.content || '';
+            // Emit the full content as a single chunk for vision responses
+            onChunk({ type: 'content', content });
+            response = {
+              content,
+              model: visionResult.model,
+              tokens_used: (visionResult.prompt_eval_count || 0) + (visionResult.eval_count || 0),
+              response_time_ms: visionResult.total_duration
+                ? Math.round(visionResult.total_duration / 1_000_000)
+                : Date.now() - startTime,
+            };
+          } else {
+            response = await this.ollamaWrapper.generateStreamingResponse(
+              message,
+              conversationContext,
+              personalityState,
+              onChunk,
+              streamingOptions
+            );
+          }
           break;
 
         case 'openai':

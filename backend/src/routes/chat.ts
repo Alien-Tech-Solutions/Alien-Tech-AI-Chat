@@ -7,10 +7,12 @@ import { EnhancedMemoryService } from '../services/EnhancedMemoryService';
 import { sentimentMiddleware, createSentimentMiddleware, SentimentAnalyzer } from '../middleware/sentiment';
 import { asyncHandler, createValidationError, createNotFoundError } from '../middleware/errorHandler';
 import { endpointRateLimiter } from '../middleware/rateLimiter';
-import { ChatRequest, ChatResponse, Conversation, StreamChunk } from '../types';
+import { ChatRequest, ChatResponse, ChatAttachment, Conversation, StreamChunk } from '../types';
 import { aiLogger, apiLogger } from '../utils/logger';
 import { config } from '../config/settings';
 import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import fs from 'fs';
 
 // Export a function that creates the router with dependencies
 export default function createChatRoutes(db: DatabaseService, aiService: AIService): Router {
@@ -53,7 +55,9 @@ export default function createChatRoutes(db: DatabaseService, aiService: AIServi
     session_id: body.session_id || 'default',
     context: body.context || {},
     stream: body.stream === true,
-    useUncensored: body.useUncensored === true
+    useUncensored: body.useUncensored === true,
+    images: Array.isArray(body.images) ? body.images : undefined,
+    attachments: Array.isArray(body.attachments) ? body.attachments : undefined,
   };
 }
 
@@ -78,7 +82,8 @@ async function generateAIResponse(
   context: Conversation[], 
   personalityState: any,
   streamCallback?: (chunk: StreamChunk) => void,
-  useUncensored: boolean = true
+  useUncensored: boolean = true,
+  images?: string[]
 ): Promise<{ content: string; model: string; tokens: number; responseTime: number; provider: string }> {
   const startTime = Date.now();
   
@@ -92,7 +97,8 @@ async function generateAIResponse(
         {
           useUncensored,
           temperature: 0.7,
-          maxTokens: 500 // Increased from 1000 to 2048 for better responses with lackadaisical-assistant model
+          maxTokens: 500,
+          images,
         }
       );
 
@@ -111,7 +117,8 @@ async function generateAIResponse(
         {
           useUncensored,
           temperature: 0.7,
-          maxTokens: 500 // Increased from 1000 to 2048 for better responses with lackadaisical-assistant model
+          maxTokens: 500,
+          images,
         }
       );
 
@@ -215,6 +222,25 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
       stream: chatRequest.stream
     });
 
+    // Resolve images: combine inline base64 images with image attachments
+    const images: string[] = [];
+    if (chatRequest.images) {
+      images.push(...chatRequest.images);
+    }
+    if (chatRequest.attachments) {
+      const uploadsDir = path.resolve(__dirname, '../../uploads');
+      for (const att of chatRequest.attachments) {
+        if (att.mimeType.startsWith('image/')) {
+          const filePath = path.join(uploadsDir, att.filename);
+          if (fs.existsSync(filePath)) {
+            const data = fs.readFileSync(filePath);
+            images.push(data.toString('base64'));
+          }
+        }
+      }
+    }
+    const resolvedImages = images.length > 0 ? images : undefined;
+
     // Handle streaming response
     if (chatRequest.stream && config.ai.streamMode === 'sse') {
       // Set up Server-Sent Events
@@ -242,7 +268,8 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
               aiResponse += chunk.content;
             }
           },
-          chatRequest.useUncensored
+          chatRequest.useUncensored,
+          resolvedImages
         );
 
         responseMetadata = result;
@@ -306,7 +333,8 @@ router.post('/', sentimentMiddlewareWithDB, asyncHandler(async (req: Request, re
         conversationContext,
         personalityState,
         undefined,
-        chatRequest.useUncensored
+        chatRequest.useUncensored,
+        resolvedImages
       );
 
       // Save conversation to database with full context tracking
@@ -499,6 +527,33 @@ router.get('/stream', asyncHandler(async (req: Request, res: Response) => {
   const message = req.query.message as string;
   const sessionId = req.query.session_id as string || 'default';
   const useUncensored = req.query.useUncensored === 'true';
+  const imagesParam = req.query.images as string | undefined;
+
+  // Parse images from comma-separated query param (base64 strings or file IDs)
+  let streamImages: string[] | undefined;
+  if (imagesParam) {
+    const uploadsDir = path.resolve(__dirname, '../../uploads');
+    const parts = imagesParam.split(',');
+    const resolved: string[] = [];
+    for (const part of parts) {
+      const trimmed = part.trim();
+      // If it looks like a UUID file ID, read from uploads
+      if (/^[a-f0-9-]+$/.test(trimmed) && trimmed.length <= 36) {
+        const dirFiles = fs.existsSync(uploadsDir) ? fs.readdirSync(uploadsDir) : [];
+        const match = dirFiles.find(f => f.startsWith(trimmed));
+        if (match) {
+          const data = fs.readFileSync(path.join(uploadsDir, match));
+          resolved.push(data.toString('base64'));
+          continue;
+        }
+      }
+      // Otherwise treat as base64
+      resolved.push(trimmed);
+    }
+    if (resolved.length > 0) {
+      streamImages = resolved;
+    }
+  }
 
   if (!message || message.trim().length === 0) {
     throw createValidationError('Message is required');
@@ -554,7 +609,8 @@ router.get('/stream', asyncHandler(async (req: Request, res: Response) => {
           aiResponse += chunk.content;
         }
       },
-      useUncensored
+      useUncensored,
+      streamImages
     );
 
     // Save conversation to database with sentiment analysis

@@ -201,6 +201,17 @@ export interface ChatRequest {
   context?: Record<string, any>;
   stream?: boolean;
   useUncensored?: boolean;
+  images?: string[]; // Base64-encoded images for vision models
+  attachments?: ChatAttachment[]; // Uploaded file references
+}
+
+export interface ChatAttachment {
+  id: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
 }
 
 export interface ChatResponse {
