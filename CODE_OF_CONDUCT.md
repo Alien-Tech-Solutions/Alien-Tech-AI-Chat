@@ -36,9 +36,7 @@ Hit up the mods:
 - **GitHub**: Open an issue with [CONDUCT] tag
 - **Discord**: DM a mod
 
-We handle things quietly and fairly. Snitches get... handled appropriately by having their concerns addressed respectfully lol.
-
-### ⚖️ **What Happens**
+### ⚖️ **Rule Break: What Happens**
 
 **Strike 1 - The Talk** 🗣️
 You said something whack. We'll let you know privately. Learn from it, move on.
@@ -91,10 +89,10 @@ We built this because AI shouldn't require:
 A: Own it, apologize if needed, and don't do it again. We've all been there.
 
 **Q: Someone's being a jerk to me. Help?**
-A: Report it. We gotchu. Nobody should feel unwelcome here.
+A: L2Ignore, almost everything has a block or ignore feature.
 
 **Q: Can I swear?**
-A: Yeah, but don't be excessive or use slurs. There's a difference between casual and offensive.
+A: Why is this a question that needs answering?
 
 **Q: What if I disagree with the mods?**
 A: Appeal respectfully. We're human too and might have gotten it wrong.
